@@ -1,6 +1,5 @@
-using System.Net.WebSockets;
-using System.Text;
-using WebApplication1;
+using WebGameServer;
+using WebGameServer.GameLogic;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,9 +24,8 @@ builder.Services.AddCors(options =>
         });
 });
 
-//Game Memory
+//In Memory Management and Game State 
 var game = new GameManager(); 
-
 
 var app = builder.Build();
 
@@ -42,37 +40,28 @@ if (app.Environment.IsDevelopment())
 app.UseCors(myAllowSpecificOrigins);
 app.UseWebSockets();
 
-app.UseHttpsRedirection();
-
 app.MapPost("/TryMakeMove", async (CheckersMove move) =>
 {
-    var validMove = game.TryMove((move.FromX, move.FromY), (move.ToX, move.ToY), out var _gameState);
+    var validMove = game.TryMove((move.FromX, move.FromY), (move.ToX, move.ToY), out var gameState);
 
-    //if (validMove)
-    //{
-    var messageToSend = _gameState.ToJson();
-    await WebSocketHandler.SendMessageToAll(messageToSend); 
-    //}
+    if (validMove)
+    {
+        var messageToSend = gameState.ToByteArray();
+        await WebSocketHandler.SendMessageToAll(messageToSend); 
+    }
     
     return Results.Ok();
 });
 
-
-app.Map("/ws", async (HttpContext context) =>
+app.Map("/ws", async context =>
 {
     if (context.WebSockets.IsWebSocketRequest)
     {
         // Accept the WebSocket request
         var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-        WebSocketHandler.AddSocket(webSocket);
+        var gameStateBinary = game._gameState.ToByteArray();
         
-        var gameStateJson = game._gameState.ToJson();
-        var buffer = Encoding.UTF8.GetBytes(gameStateJson);
-        var segment = new ArraySegment<byte>(buffer);
-        await webSocket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
-        
-        
-        await HandleWebSocketCommunication(webSocket);
+        await WebSocketHandler.AddSocketAsync(webSocket, gameStateBinary);
     }
     else
     {
@@ -80,27 +69,6 @@ app.Map("/ws", async (HttpContext context) =>
     }
 });
 
-// A method to handle WebSocket communication (for example, echoing messages)
-async Task HandleWebSocketCommunication(WebSocket webSocket)
-{
-    var buffer = new byte[1024 * 4];
-    
-    while (webSocket.State == WebSocketState.Open)
-    {
-        var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-        
-        if (result.MessageType == WebSocketMessageType.Close)
-        {
-            // Close the WebSocket connection if requested
-            await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closed by the client", CancellationToken.None);
-        }
-        else
-        {
-            // Send the received message back to the client (echo)
-            await webSocket.SendAsync(new ArraySegment<byte>(buffer, 0, result.Count), WebSocketMessageType.Text, true, CancellationToken.None);
-        }
-    }
-}
 
 app.Run();
 record CheckersMove(int FromX, int FromY, int ToX, int ToY);

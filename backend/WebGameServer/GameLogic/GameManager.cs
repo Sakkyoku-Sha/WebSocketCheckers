@@ -1,4 +1,4 @@
-﻿namespace WebApplication1;
+﻿namespace WebGameServer.GameLogic;
 
 public interface IGameManager
 {
@@ -13,14 +13,14 @@ public class GameManager : IGameManager
     {
         _gameState = new CheckersGameState();
     }
-    
+
     public bool TryMove((int x, int y) from, (int x, int y) to, out CheckersGameState state)
     {
         state = _gameState;
         if (!IsInside(from.x, from.y) || !IsInside(to.x, to.y))
             return false;
 
-        var piece = _gameState.Board[from.x][from.y];
+        var piece = _gameState.Board[from.x, from.y];
         if (piece == GameBoardSquare.Empty)
             return false;
 
@@ -36,7 +36,7 @@ public class GameManager : IGameManager
                 return false;
         }
 
-        if (_gameState.Board[to.x][to.y] != GameBoardSquare.Empty)
+        if (_gameState.Board[to.x, to.y] != GameBoardSquare.Empty)
             return false;
 
         int rowDiff = to.x - from.x;
@@ -54,8 +54,8 @@ public class GameManager : IGameManager
                 jumpedX = from.x - 1;
                 jumpedY = from.y + colDiff / 2;
                 if (IsInside(jumpedX, jumpedY) &&
-                    (_gameState.Board[jumpedX][jumpedY] == GameBoardSquare.Player2Pawn ||
-                     _gameState.Board[jumpedX][jumpedY] == GameBoardSquare.Player2King))
+                    (_gameState.Board[jumpedX, jumpedY] == GameBoardSquare.Player2Pawn ||
+                     _gameState.Board[jumpedX, jumpedY] == GameBoardSquare.Player2King))
                 {
                     validMove = true;
                     isCapture = true;
@@ -71,8 +71,8 @@ public class GameManager : IGameManager
                 jumpedX = from.x + 1;
                 jumpedY = from.y + colDiff / 2;
                 if (IsInside(jumpedX, jumpedY) &&
-                    (_gameState.Board[jumpedX][jumpedY] == GameBoardSquare.Player1Pawn ||
-                     _gameState.Board[jumpedX][jumpedY] == GameBoardSquare.Player1King))
+                    (_gameState.Board[jumpedX, jumpedY] == GameBoardSquare.Player1Pawn ||
+                     _gameState.Board[jumpedX, jumpedY] == GameBoardSquare.Player1King))
                 {
                     validMove = true;
                     isCapture = true;
@@ -90,15 +90,15 @@ public class GameManager : IGameManager
                 if (IsInside(jumpedX, jumpedY))
                 {
                     if (isPlayer1Turn &&
-                       (_gameState.Board[jumpedX][jumpedY] == GameBoardSquare.Player2Pawn ||
-                        _gameState.Board[jumpedX][jumpedY] == GameBoardSquare.Player2King))
+                       (_gameState.Board[jumpedX, jumpedY] == GameBoardSquare.Player2Pawn ||
+                        _gameState.Board[jumpedX, jumpedY] == GameBoardSquare.Player2King))
                     {
                         validMove = true;
                         isCapture = true;
                     }
                     else if (!isPlayer1Turn &&
-                       (_gameState.Board[jumpedX][jumpedY] == GameBoardSquare.Player1Pawn ||
-                        _gameState.Board[jumpedX][jumpedY] == GameBoardSquare.Player1King))
+                       (_gameState.Board[jumpedX, jumpedY] == GameBoardSquare.Player1Pawn ||
+                        _gameState.Board[jumpedX, jumpedY] == GameBoardSquare.Player1King))
                     {
                         validMove = true;
                         isCapture = true;
@@ -111,19 +111,19 @@ public class GameManager : IGameManager
             return false;
 
         if (isCapture)
-            _gameState.Board[jumpedX][jumpedY] = GameBoardSquare.Empty;
-        _gameState.Board[to.x][to.y] = piece;
-        _gameState.Board[from.x][from.y] = GameBoardSquare.Empty;
+            _gameState.Board[jumpedX, jumpedY] = GameBoardSquare.Empty;
+        _gameState.Board[to.x, to.y] = piece;
+        _gameState.Board[from.x, from.y] = GameBoardSquare.Empty;
 
         bool promoted = false;
         if (piece == GameBoardSquare.Player1Pawn && to.x == 0)
         {
-            _gameState.Board[to.x][to.y] = GameBoardSquare.Player1King;
+            _gameState.Board[to.x, to.y] = GameBoardSquare.Player1King;
             promoted = true;
         }
         else if (piece == GameBoardSquare.Player2Pawn && to.x == 7)
         {
-            _gameState.Board[to.x][to.y] = GameBoardSquare.Player2King;
+            _gameState.Board[to.x, to.y] = GameBoardSquare.Player2King;
             promoted = true;
         }
 
@@ -141,7 +141,7 @@ public class GameManager : IGameManager
 
     private bool HasCaptureMove(int x, int y)
     {
-        var piece = _gameState.Board[x][y];
+        var piece = _gameState.Board[x, y];
         if (piece == GameBoardSquare.Empty)
             return false;
 
@@ -153,10 +153,10 @@ public class GameManager : IGameManager
                 int ny = y + dcol;
                 int jumpedX = x - 1;
                 int jumpedY = y + dcol / 2;
-                if (IsInside(nx, ny) && _gameState.Board[nx][ny] == GameBoardSquare.Empty &&
+                if (IsInside(nx, ny) && _gameState.Board[nx, ny] == GameBoardSquare.Empty &&
                     IsInside(jumpedX, jumpedY) &&
-                    (_gameState.Board[jumpedX][jumpedY] == GameBoardSquare.Player2Pawn ||
-                     _gameState.Board[jumpedX][jumpedY] == GameBoardSquare.Player2King))
+                    (_gameState.Board[jumpedX, jumpedY] == GameBoardSquare.Player2Pawn ||
+                     _gameState.Board[jumpedX, jumpedY] == GameBoardSquare.Player2King))
                 {
                     return true;
                 }
@@ -170,10 +170,10 @@ public class GameManager : IGameManager
                 int ny = y + dcol;
                 int jumpedX = x + 1;
                 int jumpedY = y + dcol / 2;
-                if (IsInside(nx, ny) && _gameState.Board[nx][ny] == GameBoardSquare.Empty &&
+                if (IsInside(nx, ny) && _gameState.Board[nx, ny] == GameBoardSquare.Empty &&
                     IsInside(jumpedX, jumpedY) &&
-                    (_gameState.Board[jumpedX][jumpedY] == GameBoardSquare.Player1Pawn ||
-                     _gameState.Board[jumpedX][jumpedY] == GameBoardSquare.Player1King))
+                    (_gameState.Board[jumpedX, jumpedY] == GameBoardSquare.Player1Pawn ||
+                     _gameState.Board[jumpedX, jumpedY] == GameBoardSquare.Player1King))
                 {
                     return true;
                 }
@@ -189,19 +189,19 @@ public class GameManager : IGameManager
                     int ny = y + dc;
                     int jumpedX = x + dr / 2;
                     int jumpedY = y + dc / 2;
-                    if (IsInside(nx, ny) && _gameState.Board[nx][ny] == GameBoardSquare.Empty &&
+                    if (IsInside(nx, ny) && _gameState.Board[nx, ny] == GameBoardSquare.Empty &&
                         IsInside(jumpedX, jumpedY))
                     {
                         bool opponent = false;
                         if (piece == GameBoardSquare.Player1King)
                         {
-                            opponent = (_gameState.Board[jumpedX][jumpedY] == GameBoardSquare.Player2Pawn ||
-                                        _gameState.Board[jumpedX][jumpedY] == GameBoardSquare.Player2King);
+                            opponent = (_gameState.Board[jumpedX, jumpedY] == GameBoardSquare.Player2Pawn ||
+                                        _gameState.Board[jumpedX, jumpedY] == GameBoardSquare.Player2King);
                         }
                         else
                         {
-                            opponent = (_gameState.Board[jumpedX][jumpedY] == GameBoardSquare.Player1Pawn ||
-                                        _gameState.Board[jumpedX][jumpedY] == GameBoardSquare.Player1King);
+                            opponent = (_gameState.Board[jumpedX, jumpedY] == GameBoardSquare.Player1Pawn ||
+                                        _gameState.Board[jumpedX, jumpedY] == GameBoardSquare.Player1King);
                         }
                         if (opponent)
                             return true;
