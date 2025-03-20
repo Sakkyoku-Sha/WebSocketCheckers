@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+.game-area {
+  height: 100vh;
+  width: 75%;
+  align-items: center;
+  background-color: red;
+  /* background-color: blueviolet; */
+  justify-self: center;
+}
+
+.game-board {
+  height: 100%;
+  width: 100%;
+}
+
+.game-board-row{
+  display: flex;
+  flex-direction: row;
+  height: 12.5%;
+  width: 100%;
+}
+
+.game-board-square{
+  height: 100%;
+  width: 100%;
+}
+
+.whiteSquare {
+  background-color: white;
+  height: 100%;
+  width: 12.5%;
+}
+.blackSquare {
+  background-color: grey;
+  height: 100%;
+  width: 12.5%;
+}
+
+.player1-piece {
+  background-color: burlywood;
+  border-radius: 100%;
+  height: 100%;
+  width: 100%;
+}
+.player2-piece {
+  background-color: brown;
+  border-radius: 100%;
+  height: 100%;
+  width: 100%;
+}
+
+.selected {
+  border: 4px solid yellow;
+}
+
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  height: 100%;
+  width: 100%;
+}
+
+.html {
+  height: 100%;
+  width: 100%;
+}

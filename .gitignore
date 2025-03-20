@@ -1,0 +1,59 @@
+# Ignore node_modules in the frontend
+frontend/node_modules/
+
+# Ignore build output in the frontend (Vite or React build)
+frontend/dist/
+frontend/build/
+
+# Ignore log files, environment variables, and temporary files in frontend
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+frontend/.env.development
+frontend/.env.test
+frontend/.log
+frontend/.next/
+
+# Ignore package-lock.json (if using Yarn instead of npm)
+frontend/yarn.lock
+frontend/package-lock.json
+
+# Ignore IDE/editor-specific files (e.g., VSCode)
+frontend/.vscode/
+
+# Ignore ASP.NET build output in the backend
+backend/**/bin/
+backend/**/obj/
+
+# Ignore user-specific configuration files
+backend/**/.vs
+backend/**/.vscode/
+backend/**/.idea/
+
+
+# Ignore environment variables and secret config in backend
+backend/**/*appsettings.Development.json
+backend/**/*appsettings.Production.json
+backend/**/*.user
+backend/**/*.userosscache
+backend/**/*.suo
+
+# Ignore publish output in backend
+backend/**/publish/
+
+# Ignore database files (e.g., SQLite databases)
+backend/**/*.db
+backend/**/*.db-journal
+
+# Ignore npm debug log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ignore system files (macOS, Windows)
+.DS_Store
+Thumbs.db
+
+# Ignore temporary files and logs
+*.log
+*.tmp
