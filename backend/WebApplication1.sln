@@ -1,8 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebApplication1", "WebApplication1\WebApplication1.csproj", "{D6C8E1B7-A0B2-410E-8A86-3523DF1C37DE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebGameServer", "WebGameServer\WebGameServer.csproj", "{D6C8E1B7-A0B2-410E-8A86-3523DF1C37DE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebApplication1Tests", "WebApplication1Tests\WebApplication1Tests.csproj", "{8BF17438-B7C9-431F-84FD-F1F21DEA1C89}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebGameServerTests", "WebGameServerTests\WebGameServerTests.csproj", "{8BF17438-B7C9-431F-84FD-F1F21DEA1C89}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
