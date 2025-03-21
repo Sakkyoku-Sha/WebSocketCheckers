@@ -16,76 +16,116 @@ namespace WebGameServerTests
         }
 
         [Test]
-        public void TryMove_FromEmptySquare_ReturnsFalseAndStateUnchanged()
+        public void FirstMoveValidTest()
         {
-            var result = _gameManager.TryMove((3, 3), (4, 4), out var state);
+            var gameState = new CheckersGameState();
+            var validMoves = new[] { (1, 4), (3,4) };
+            var from = (2, 5); 
+            foreach (var move in validMoves)
+            {
+                var result = _gameManager.TryMove(gameState, from, move, out var nextState);
+            
+                Assert.Multiple(() =>
+                {
+                    Assert.That(result, Is.True);
+                    Assert.That(nextState.Player1Turn, Is.EqualTo(false));
+                    Assert.That(nextState.Board[from.Item2, from.Item1], Is.EqualTo(GameBoardSquare.Empty));
+                    Assert.That(nextState.Board[move.Item2, move.Item1], Is.EqualTo(GameBoardSquare.Player1Pawn));
+                });
+            }
+        }
+        
+        [Test]
+        public void SimpleInvalidMoveValidTest()
+        {
+            var gameState = new CheckersGameState(); 
+            
+            //Move Right 
+            var invalidMovements = new[] { (1, 5), (0, 4), (0, 6), (9, 9), (-1, 4), (2, 3) };
+            foreach (var move in invalidMovements)
+            {
+                var result = _gameManager.TryMove(gameState, (0, 5), move, out var nextState);
+                
+                Assert.Multiple(() =>
+                {
+                    Assert.That(result, Is.False);
+                    Assert.That(nextState.Player1Turn, Is.EqualTo(true));
+                    CollectionAssert.AreEqual(gameState.Board, nextState.Board);
+                });
+            }
+        }
+        
+        [Test]
+        public void JumpMoveValidTest()
+        {
+            var gameState = new CheckersGameState();
+    
+            // Clear the board for a controlled test setup
+            for (int y = 0; y < 8; y++)
+            {
+                for (int x = 0; x < 8; x++)
+                {
+                    gameState.Board[y, x] = GameBoardSquare.Empty;
+                }
+            }
+    
+            // Set up a Player 1 piece and a Player 2 piece to jump over
+            gameState.Board[2, 3] = GameBoardSquare.Player2Pawn; // Player 1 piece
+            gameState.Board[3, 4] = GameBoardSquare.Player1Pawn; // Player 2 piece to jump over
+    
+            var from = (4, 3); // (x, y) of Player 1's piece
+            var to = (2, 1);   // Target jump location
+    
+            var result = _gameManager.TryMove(gameState, from, to, out var nextState);
+    
             Assert.Multiple(() =>
             {
-                Assert.That(result, Is.False);
-                Assert.That(state.Player1Turn, Is.EqualTo(_initialState.Player1Turn));
-                Assert.That(state.Board[3, 3], Is.EqualTo(_initialState.Board[3, 3]));
-                Assert.That(state.Board[4, 4], Is.EqualTo(_initialState.Board[4, 4]));
+                Assert.That(result, Is.True); // Move should be valid
+                Assert.That(nextState.Player1Turn, Is.EqualTo(true)); // Turn should NOT switch
+                Assert.That(nextState.Board[from.Item2, from.Item1], Is.EqualTo(GameBoardSquare.Empty)); // Original spot should be empty
+                Assert.That(nextState.Board[to.Item2, to.Item1], Is.EqualTo(GameBoardSquare.Player1Pawn)); // Piece should be at new location
+                Assert.That(nextState.Board[2, 3], Is.EqualTo(GameBoardSquare.Empty)); // Opponent's piece should be captured
             });
         }
-
+        
         [Test]
-        public void TryMove_InvalidNonDiagonalMove_ReturnsFalseAndStateUnchanged()
+        public void KingPromotionTest()
         {
-            var result = _gameManager.TryMove((5, 0), (5, 1), out var state);
-            Assert.Multiple(() =>
+            var gameState = new CheckersGameState();
+    
+            // Clear the board for a controlled test setup
+            for (int y = 0; y < 8; y++)
             {
-                Assert.That(result, Is.False);
-                Assert.That(state.Player1Turn, Is.EqualTo(_initialState.Player1Turn));
-                Assert.That(state.Board[5, 0], Is.EqualTo(_initialState.Board[5, 0]));
-            });
-        }
-
-        [Test]
-        public void TryMove_ValidMove_UpdatesBoardAndSwitchesTurn()
-        {
-            var result = _gameManager.TryMove((5, 0), (4, 1), out var state);
+                for (int x = 0; x < 8; x++)
+                {
+                    gameState.Board[y, x] = GameBoardSquare.Empty;
+                }
+            }
+            
+            gameState.Board[1, 1] = GameBoardSquare.Player1Pawn;
+    
+            var from = (1, 1); 
+            var to = (0, 0);   
+    
+            var result = _gameManager.TryMove(gameState, from, to, out var nextState);
+    
             Assert.Multiple(() =>
             {
                 Assert.That(result, Is.True);
-                Assert.That(state.Board[5, 0], Is.EqualTo(GameBoardSquare.Empty));
-                Assert.That(state.Board[4, 1], Is.EqualTo(GameBoardSquare.Player1Pawn));
-                Assert.That(state.Player1Turn, Is.EqualTo(!_initialState.Player1Turn));
+                Assert.That(nextState.Player1Turn, Is.EqualTo(false)); 
+                Assert.That(nextState.Board[from.Item2, from.Item1], Is.EqualTo(GameBoardSquare.Empty)); // Original spot should be empty
+                Assert.That(nextState.Board[to.Item2, to.Item1], Is.EqualTo(GameBoardSquare.Player1King)); // Piece should be at new location
             });
-        }
-
-        [Test]
-        public void TryMove_MoveOutOfBounds_ReturnsFalseAndStateUnchanged()
-        {
-            var result = _gameManager.TryMove((5, 0), (8, 1), out var state);
+            
+            //King can move backwards
+            nextState.Player1Turn = true;
+            result = _gameManager.TryMove(nextState, to, from, out var newState2);
             Assert.Multiple(() =>
             {
-                Assert.That(result, Is.False);
-                Assert.That(state.Player1Turn, Is.EqualTo(_initialState.Player1Turn));
-                Assert.That(state.Board[5, 0], Is.EqualTo(_initialState.Board[5, 0]));
-            });
-        }
-
-        [Test]
-        public void TryMove_MovingOpponentsPiece_ReturnsFalseAndStateUnchanged()
-        {
-            var result = _gameManager.TryMove((0, 1), (1, 0), out var state);
-            Assert.Multiple(() =>
-            {
-                Assert.That(result, Is.False);
-                Assert.That(state.Player1Turn, Is.EqualTo(_initialState.Player1Turn));
-                Assert.That(state.Board[0, 1], Is.EqualTo(_initialState.Board[0, 1]));
-            });
-        }
-
-        [Test]
-        public void TryMove_PawnMovingBackward_ReturnsFalse()
-        {
-            var result = _gameManager.TryMove((5, 0), (6, 1), out var state);
-            Assert.Multiple(() =>
-            {
-                Assert.That(result, Is.False);
-                Assert.That(state.Player1Turn, Is.EqualTo(_initialState.Player1Turn));
-                Assert.That(state.Board[5, 0], Is.EqualTo(_initialState.Board[5, 0]));
+                Assert.That(result, Is.True);
+                Assert.That(newState2.Player1Turn, Is.EqualTo(false)); 
+                Assert.That(newState2.Board[to.Item2, to.Item1], Is.EqualTo(GameBoardSquare.Empty)); // Original spot should be empty
+                Assert.That(newState2.Board[from.Item2, from.Item1], Is.EqualTo(GameBoardSquare.Player1King)); // Piece should be at new location
             });
         }
     }

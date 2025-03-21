@@ -1,4 +1,5 @@
 using WebGameServer;
+using WebGameServer.API;
 using WebGameServer.GameLogic;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,8 +22,14 @@ builder.Services.AddCors(options =>
         policy  =>
         {
             policy.WithOrigins("http://localhost:3000").AllowAnyHeader().AllowCredentials().AllowAnyMethod();
+            policy.WithOrigins("http://localhost:5000").AllowAnyHeader().AllowCredentials().AllowAnyMethod();
         });
 });
+
+//Setup GraphQL 
+builder.Services
+    .AddGraphQLServer()
+    .AddQueryType<Query>();
 
 //In Memory Management and Game State 
 var game = new GameManager(); 
@@ -32,8 +39,9 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    // app.UseSwagger();
+    // app.UseSwaggerUI();
+    app.MapGraphQLWebSocket();
 }
 
 //Web Socket Stuff. 
@@ -69,6 +77,7 @@ app.Map("/ws", async context =>
     }
 });
 
+app.MapGraphQL();
 
 app.Run();
 record CheckersMove(int FromX, int FromY, int ToX, int ToY);

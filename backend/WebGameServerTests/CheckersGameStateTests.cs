@@ -41,7 +41,7 @@ public class CheckersGameStateTests
         _checkersGameState.Board[5, 5] = GameBoardSquare.Empty;
 
         var bytes = _checkersGameState.ToByteArray();
-        var newBoard = CheckersGameState.FromByteArray(bytes);
+        var newBoard = CheckersGameState.FromBytes(bytes);
         
         Assert.That(_checkersGameState.Player1Turn, Is.EqualTo(newBoard.Player1Turn));
         CollectionAssert.AreEqual(_checkersGameState.Board, newBoard.Board);

@@ -9,11 +9,11 @@
         Player2King = 4
     }
 
-    public class CheckersGameState
+    public class CheckersGameState : IByteSerializable<CheckersGameState>
     {
         // Using a 2D array instead of a jagged array.
-        public GameBoardSquare[,] Board { get; set; }
-        public bool Player1Turn { get; set; }
+        public GameBoardSquare[,] Board { get; } 
+        public bool Player1Turn;
         
         public CheckersGameState()
         {
@@ -21,6 +21,12 @@
             Buffer.BlockCopy(InitialGameBoard, 0, newBoard, 0,BoardSizeBytes );
             Board = newBoard;
             Player1Turn = true;
+        }
+        
+        public CheckersGameState(CheckersGameState gameState)
+        {
+            Board = (GameBoardSquare[,])gameState.Board.Clone(); 
+            Player1Turn = gameState.Player1Turn;
         }
         
         private CheckersGameState(GameBoardSquare[,] board, bool player1Turn)
@@ -78,7 +84,7 @@
 
             return data; 
         }
-        public static CheckersGameState FromByteArray(byte[] bytes)
+        public static CheckersGameState FromBytes(byte[] bytes)
         {
             var board = new GameBoardSquare[8, 8];
             Buffer.BlockCopy(bytes, 0, board, 0, BoardSizeBytes); // Copy all except last byte
