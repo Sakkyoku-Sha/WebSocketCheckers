@@ -1,5 +1,6 @@
 "use client"
-import { useEffect, useState, useRef, useMemo, JSX } from 'react';
+import { HtmlContext } from 'next/dist/server/route-modules/pages/vendored/contexts/entrypoints';
+import { MouseEventHandler, useEffect, useState, useRef, useMemo, JSX } from 'react';
 
 enum GameBoardSquare{
     EMPTY = 0,
@@ -15,6 +16,11 @@ export interface Move {
     toY: number
 }
 
+export interface GamePiece{
+    row: number
+    col: number
+    value: GameBoardSquare
+}
 
 export default function GameBoard() {
 
@@ -27,10 +33,10 @@ export default function GameBoard() {
         if (selectedSquare === null) return;
         
         const move: Move = {
-            fromX: selectedSquare.row,
-            fromY: selectedSquare.col,
-            toX: row,
-            toY: col
+            fromX: selectedSquare.col,
+            fromY: selectedSquare.row,
+            toX: col,
+            toY: row
         };
 
         const endPoint = 'http://localhost:5050/TryMakeMove';
@@ -43,14 +49,20 @@ export default function GameBoard() {
         })
     }
     
-    const onSquareClick = (row: number, col: number) => {
+    const onBoardClick: MouseEventHandler<HTMLDivElement> = (event) => {
+        const rect = event.currentTarget.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        const col = Math.floor(x / (rect.width / 8));  // Divide by 8 to get 8 columns
+        const row = Math.floor(y / (rect.height / 8)); // Divide by 8 to get 8 rows
+    
         if (selectedSquare === null) {
-            setSelectedSquare({row, col});
+            setSelectedSquare({ row, col });
         } else {
             TryMakeMove(row, col);
             setSelectedSquare(null);
         }
-    }
+    };
     
     useEffect(() => {
 
@@ -80,37 +92,45 @@ export default function GameBoard() {
 
     }, []);
 
-    const rows = useMemo<JSX.Element[]>(() => {
-        return Array.from({ length: 8 }, (_, rowIndex) => (
-            <div key={rowIndex} className="game-board-row">
-                {Array.from({ length: 8 }, (_, colIndex) => {
-                    const squareIndex = rowIndex * 8 + colIndex;
-                    return (
-                        <div
-                            key={colIndex}
-                            onClick={() => onSquareClick(rowIndex, colIndex)}
-                            className={`gameBoardSquare ${DetermineBackGroundColor(rowIndex, colIndex)} ${selectedSquare?.row === rowIndex && selectedSquare?.col === colIndex ? "selected" : ""}`}
-                        >
-                            {renderPiece(gameState[squareIndex])}
-                        </div>
-                    );
-                })}
-            </div>
-        ));
-    }, [gameState, selectedSquare]);
-  
-    return <div className="game-board">{rows}</div>;
+    const nonEmptySquares : GamePiece[] = useMemo(() => {
+        const squaresList = new Array<GamePiece>();    
+        for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+                const squareValue = gameState[row * 8 + col];
+                if (squareValue !== GameBoardSquare.EMPTY) {
+                    squaresList.push({row, col, value: squareValue});
+                }
+            }
+        }
+        return squaresList;
+    }, [gameState]);
+
+    return (
+        <div className="game-board" onClick={onBoardClick}>
+          {nonEmptySquares.map((piece) => renderPiece(piece, selectedSquare))}
+        </div>
+      );
 }
 
-const renderPiece = (squareValue: number) => {
-    switch (squareValue) {
-        case GameBoardSquare.PLAYER1PAWN: return <div className="player1-piece"></div>;
-        case GameBoardSquare.PLAYER1KING: return <div className="player1-piece king"></div>;
-        case GameBoardSquare.PLAYER2PAWN: return <div className="player2-piece"></div>;
-        case GameBoardSquare.PLAYER2KING: return <div className="player2-piece king"></div>;
-        default: return null;
-    }
+const renderPiece = (gamePiece : GamePiece, selectedSquare : { row: number, col: number } | null) => {
+
+    const left = (12.5 * gamePiece.col) + "%";
+    const top = (12.5 * gamePiece.row) + "%";
+    const key = gamePiece.row + ":" + gamePiece.col;
+    const isSelected = selectedSquare !== null && selectedSquare.row === gamePiece.row && selectedSquare.col === gamePiece.col;
+    
+    return <div key={key} className={determineClassName(gamePiece.value) + (isSelected ? " selected" : "")} style={{left:left,top:top}}></div>;
 };
+
+const determineClassName = (square: GameBoardSquare) : string => {
+    switch (square) {
+        case GameBoardSquare.PLAYER1PAWN: return "player1-pawn";
+        case GameBoardSquare.PLAYER1KING: return "player1-king";
+        case GameBoardSquare.PLAYER2PAWN: return "player2-pawn";
+        case GameBoardSquare.PLAYER2KING: return "player2-king";
+        default: return "emptySquare";
+    }
+}
 
 const DetermineBackGroundColor = (row : number, col : number) : string => {
     if ((row + col) % 2 === 0) {
@@ -122,18 +142,18 @@ const DetermineBackGroundColor = (row : number, col : number) : string => {
 // Temp value untill we actually get the server to send game state with the init on websocket connect. 
 const initialGameState = new Uint8Array([
     // Player 2 pieces on the top 3 rows (3)
-    0, 3, 0, 3, 0, 3, 0, 3,  // Row 0
-    3, 0, 3, 0, 3, 0, 3, 0,  // Row 1
-    0, 3, 0, 3, 0, 3, 0, 3,  // Row 2
+    0, 0, 0, 0, 0, 0, 0, 0,  // Row 0
+    0, 0, 0, 0, 0, 0, 0, 0,  // Row 1
+    0, 0, 0, 0, 0, 0, 0, 0,  // Row 2
   
     // Empty middle rows (0)
     0, 0, 0, 0, 0, 0, 0, 0,  // Row 3
     0, 0, 0, 0, 0, 0, 0, 0,  // Row 4
   
     // Player 1 pieces on the bottom 3 rows (1)
-    1, 0, 1, 0, 1, 0, 1, 0,  // Row 5
-    0, 1, 0, 1, 0, 1, 0, 1,  // Row 6
-    1, 0, 1, 0, 1, 0, 1, 0,  // Row 7
+    0, 0, 0, 0, 0, 0, 0, 0,  // Row 5
+    0, 0, 0, 0, 0, 0, 0, 0,  // Row 6
+    0, 0, 0, 0, 0, 0, 0, 0,  // Row 7
   
     // Turn flag (index 64)
     1
