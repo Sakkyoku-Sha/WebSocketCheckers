@@ -25,7 +25,7 @@ public static class GameLogic
         var fromBit = GameState.GetBitIndex(fromX, fromY);
         var toBit = GameState.GetBitIndex(toX, toY);
 
-        //Can't move to a space with a piece, (unless it's the same square (as cycles jumps are possible)  
+        //Can't move to a space with a piece, (unless it's the same square (as cycles jumps are supported)) 
         var allPieces = state.GetAllPieces();
         if (GameState.IsBitSet(allPieces, toBit) && fromBit != toBit)
         {
@@ -48,6 +48,7 @@ public static class GameLogic
         var dy = toY - fromY;
         
         //Simple Move Case Valid moves are 
+        //todo redo logic so that we don't call this method for single jumps (the majority of moves) 
         var possibleJumps = DeterminePossibleJumpEndPoints(ref state, playerPieces, playerKings, allPieces);
         if (possibleJumps.Count > 0 && possibleJumps.All(x => x.finalJump != toBit) ||
             (fromBit == toBit && possibleJumps.Count == 0))
@@ -169,6 +170,7 @@ public static class GameLogic
         (BackRight, JumpBackRight, (canJumpRight, _, _, canJumpDown) => canJumpDown && canJumpRight)
     ];  
     
+    //todo rewrite this to use a stack frame and itterative instead of the current solution. 
     private static IEnumerable<(int, List<int> jumpedOver, bool isKing)> DeterminePossibleDirectionsToJump(int index, ulong allPieces, ulong opponentPieces,
         bool player1Turn, bool isKing, List<int> jumpedOver)
     {
@@ -221,8 +223,6 @@ public static class GameLogic
             allPieces = GameState.SetBit(allPieces, index);
         }
     }
-
-    
     
     private static bool ShouldPromote(int jumpIndex, bool player1Turn)
     {

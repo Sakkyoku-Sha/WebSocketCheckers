@@ -6,7 +6,7 @@ public class GameLogicTests
 {
     // Helper function to create CheckersBitboardState from string array representation (same as before)
     // Note: The boardString is assumed to be an 8-element array where index 0 is the top row.
-    private static GameState CreateBoardFromStringArray(string[] boardString)
+    public static GameState CreateBoardFromStringArray(string[] boardString)
     {
         var state = new GameState();
         for (int y = 0; y < 8; y++)
