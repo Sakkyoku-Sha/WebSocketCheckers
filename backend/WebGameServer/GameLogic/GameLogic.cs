@@ -5,9 +5,10 @@ public static class GameLogic
     private static bool IsOnBoard(int x, int y) => x >= 0 && x < GameState.BoardSize && y >= 0 && y < GameState.BoardSize;
     private static bool IsDarkSquare(int x, int y) => (x + y) % 2 == 1;
     
-    public static bool TryApplyMove(ref GameState state, CheckersMove move)
+    public static bool TryApplyMove(ref GameState state, int fromBitIndex, int toBitIndex)
     {
-        var (fromX, fromY, toX, toY) = move;
+        var (fromX, fromY) = GameState.GetXY(fromBitIndex);
+        var (toX, toY) = GameState.GetXY(toBitIndex);
         
         //Move must be on the board and on a dark square 
         if (
@@ -18,27 +19,24 @@ public static class GameLogic
         {
             return false; 
         }
-
-        var fromBit = GameState.GetBitIndex(fromX, fromY);
-        var toBit = GameState.GetBitIndex(toX, toY);
-
+        
         //Can't move to a space with a piece, (unless it's the same square (as cycles jumps are supported)) 
         var allPieces = state.GetAllPieces();
-        if (GameState.IsBitSet(allPieces, toBit) && fromBit != toBit)
+        if (GameState.IsBitSet(allPieces, toBitIndex) && fromBitIndex != toBitIndex)
         {
             return false; 
         }
         
         //Only Can move the current turn pieces. 
         var playerPieces = state.IsPlayer1Turn ? state.GetPlayer1Pieces() : state.GetPlayer2Pieces();
-        if (!GameState.IsBitSet(playerPieces, fromBit))
+        if (!GameState.IsBitSet(playerPieces, fromBitIndex))
         {
             return false;
         }
         
         //Determine if we are working with a king or a pawn 
         var playerKings = state.IsPlayer1Turn ? state.Player1Kings : state.Player2Kings;
-        var isKing = GameState.IsBitSet(playerKings, fromBit);
+        var isKing = GameState.IsBitSet(playerKings, fromBitIndex);
         
         //Determine offsets. 
         var dx = toX- fromX;
@@ -47,8 +45,8 @@ public static class GameLogic
         //Simple Move Case Valid moves are 
         //todo redo logic so that we don't call this method for single jumps (the majority of moves) 
         var possibleJumps = DeterminePossibleJumpEndPoints(ref state, playerPieces, playerKings, allPieces);
-        if (possibleJumps.Count > 0 && possibleJumps.All(x => x.finalJump != toBit) ||
-            (fromBit == toBit && possibleJumps.Count == 0))
+        if (possibleJumps.Count > 0 && possibleJumps.All(x => x.finalJump != toBitIndex) ||
+            (fromBitIndex == toBitIndex && possibleJumps.Count == 0))
         {
             return false; 
         }
@@ -58,7 +56,7 @@ public static class GameLogic
             return false; 
         }
         //Pawn movement must be forward 
-        if (!isKing && (state.IsPlayer1Turn && dy > 0) || (!state.IsPlayer1Turn && dy < 0))
+        if (!isKing && (state.IsPlayer1Turn && dy > 0) || !isKing && (!state.IsPlayer1Turn && dy < 0))
         {
             return false;
         }
@@ -67,7 +65,7 @@ public static class GameLogic
         //Remove From Location and Set Current Position.  
         ref var playerPieceBoard = ref state.Player1Pawns; // Default assignment to avoid uninitialized ref
         //Determine if you should promote. 
-        var shouldPromote = ShouldPromote(toBit, state.IsPlayer1Turn); 
+        var shouldPromote = ShouldPromote(toBitIndex, state.IsPlayer1Turn); 
         
         if (state.IsPlayer1Turn)
         {
@@ -84,9 +82,14 @@ public static class GameLogic
                 playerPieceBoard = ref state.Player2Pawns;
         }
         //MAKE SURE TO CLEAR AND THEN SET 
-        playerPieceBoard = GameState.ClearBit(playerPieceBoard, fromBit);
-        playerPieceBoard = GameState.SetBit(playerPieceBoard, toBit);
+        playerPieceBoard = GameState.ClearBit(playerPieceBoard, fromBitIndex);
+        playerPieceBoard = GameState.SetBit(playerPieceBoard, toBitIndex);
         
+        var moveToStore = new CheckersMove()
+        {
+            FromIndex = (byte)fromBitIndex, //Valid Indexes will cast fine 
+            ToIndex = (byte)toBitIndex,
+        };
         //Remove opponent pieces 
         if (possibleJumps.Count > 0)
         {
@@ -98,34 +101,38 @@ public static class GameLogic
                 opponentsPawns = ref state.Player1Pawns;
             }
             
-            (int finalJump, List<int> jumpedOver, bool becameKing) jumpedIndexes = possibleJumps.Find(x => x.finalJump == toBit);
+            ulong capturedPiecesBoard = 0ul;
+            (int finalJump, List<int> jumpedOver, bool becameKing) jumpedIndexes = possibleJumps.Find(x => x.finalJump == toBitIndex);
             foreach (var jumped in jumpedIndexes.jumpedOver)
             {
-                GameState.ClearBit(opponentKings, jumped);
-                GameState.ClearBit(opponentsPawns, jumped);
+                opponentKings = GameState.ClearBit(opponentKings, jumped);
+                opponentsPawns = GameState.ClearBit(opponentsPawns, jumped);
+                capturedPiecesBoard = GameState.SetBit(capturedPiecesBoard, jumped); 
             }
 
+            moveToStore.CapturedPieces = capturedPiecesBoard;
             shouldPromote |= jumpedIndexes.becameKing;
         }
 
+        moveToStore.Promoted = shouldPromote;
         //Promotion Logic. 
         if (shouldPromote)
         {
             if (state.IsPlayer1Turn)
             {
-                state.Player1Kings = GameState.SetBit(state.Player1Kings, toBit);
-                state.Player1Pawns = GameState.ClearBit(state.Player1Pawns, toBit);
+                state.Player1Kings = GameState.SetBit(state.Player1Kings, toBitIndex);
+                state.Player1Pawns = GameState.ClearBit(state.Player1Pawns, toBitIndex);
             }
             else
             {
-                state.Player2Kings = GameState.SetBit(state.Player2Kings, toBit);
-                state.Player2Pawns = GameState.ClearBit(state.Player2Pawns, toBit);
+                state.Player2Kings = GameState.SetBit(state.Player2Kings, toBitIndex);
+                state.Player2Pawns = GameState.ClearBit(state.Player2Pawns, toBitIndex);
             }
         }
         
         //Flip Turns, no partial moves are possible. 
         state.IsPlayer1Turn = !state.IsPlayer1Turn;
-        state.AddHistory(move);
+        state.AddHistory(moveToStore);
         return true; 
     }
     

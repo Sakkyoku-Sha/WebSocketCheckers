@@ -233,6 +233,38 @@ public class GameLogicTests
     }
     
     [Test]
+    public void MultipleJumpChoicesTest()
+    {
+        var boardString = new string[]
+        {
+            "........", // row 0
+            "........", // row 1
+            "........", // row 2: 
+            "........", // row 3: 
+            "...e....", // row 4
+            "..p.p...", // row 5
+            "........", // row 6
+            "........", // row 7
+        };
+        var state = CreateBoardFromStringArray(boardString);
+
+        var from = GameState.GetBitIndex(4, 5);
+        var to = GameState.GetBitIndex(2, 3);
+        var success = GameLogic.TryApplyMove(ref state, from, to);
+        
+        Assert.IsTrue(success);
+
+        from = GameState.GetBitIndex(2, 5); 
+        to = GameState.GetBitIndex(4, 3);
+
+        state = CreateBoardFromStringArray(boardString);
+        state.IsPlayer1Turn = true; 
+        
+        success = GameLogic.TryApplyMove(ref state, from, to);
+        Assert.IsTrue(success);
+    }
+    
+    [Test]
     public void JumpsWithPromotionForcedJumpTest()
     {
         var boardString = new string[]
@@ -295,8 +327,10 @@ public class GameLogicTests
         var state = CreateBoardFromStringArray(boardString);
         
         //Jumping Pawns 
-        var move = new CheckersMove(2, 5, 2, 5); 
-        var isValidMove = GameLogic.TryApplyMove(ref state, move);
+        var fromBit = GameState.GetBitIndex(2, 5);
+        var toBit = GameState.GetBitIndex(2, 5); 
+         
+        var isValidMove = GameLogic.TryApplyMove(ref state, fromBit, toBit);
         
         Assert.IsTrue(isValidMove);
         Assert.IsTrue(GameState.IsBitSet(state.Player1Kings, GameState.GetBitIndex(2,5))); //King still exists
@@ -305,6 +339,12 @@ public class GameLogicTests
         Assert.IsFalse(GameState.IsBitSet(state.Player2Kings, GameState.GetBitIndex(3,4)));
         Assert.IsFalse(GameState.IsBitSet(state.Player2Kings, GameState.GetBitIndex(1,2)));
         Assert.IsFalse(GameState.IsBitSet(state.Player2Kings, GameState.GetBitIndex(3,2)));
+
+        var capturedPiecesBoard = state.MoveHistory[0].CapturedPieces;
+        Assert.IsTrue(GameState.IsBitSet(capturedPiecesBoard, GameState.GetBitIndex(1,4))); //Removed all jumped pieces 
+        Assert.IsTrue(GameState.IsBitSet(capturedPiecesBoard, GameState.GetBitIndex(3,4)));
+        Assert.IsTrue(GameState.IsBitSet(capturedPiecesBoard, GameState.GetBitIndex(1,2)));
+        Assert.IsTrue(GameState.IsBitSet(capturedPiecesBoard, GameState.GetBitIndex(3,2)));
     }
     
     [Test]
@@ -324,8 +364,10 @@ public class GameLogicTests
         var state = CreateBoardFromStringArray(boardString);
         
         //Jumping Pawns 
-        var move = new CheckersMove(1, 2, 5, 2); 
-        var isValidMove = GameLogic.TryApplyMove(ref state, move);
+        var fromBit = GameState.GetBitIndex(1, 2);
+        var toBit = GameState.GetBitIndex(5, 2);
+
+        var isValidMove = GameLogic.TryApplyMove(ref state, fromBit, toBit);
         
         Assert.IsTrue(isValidMove);
         Assert.IsTrue(GameState.IsBitSet(state.Player1Kings, GameState.GetBitIndex(5,2))); //was promoted to king and jumped
@@ -335,23 +377,60 @@ public class GameLogicTests
         Assert.IsFalse(GameState.IsBitSet(state.Player1Pawns, GameState.GetBitIndex(2,1))); //Removed all jumped pieces 
         Assert.IsFalse(GameState.IsBitSet(state.Player1Pawns, GameState.GetBitIndex(4,1)));
     }
+    
+    [Test]
+    public void PromotionAndRetreat()
+    {
+        var boardString = new string[]
+        {
+            "........", // row 0
+            "........", // row 1
+            "........", // row 2: 
+            "........", // row 3: 
+            "........", // row 4
+            "........", // row 5
+            ".e.p....", // row 6
+            "........", // row 7
+        };
+        var state = CreateBoardFromStringArray(boardString);
+        state.IsPlayer1Turn = false;
+        
+        //Promote Enemy Piece 
+        var fromBit = GameState.GetBitIndex(1, 6);
+        var toBit = GameState.GetBitIndex(2, 7);
+        Assert.IsTrue(GameLogic.TryApplyMove(ref state, fromBit, toBit));
+        Assert.IsTrue(GameState.IsBitSet(state.Player2Kings, toBit));
+        
+        //Player Piece 
+        fromBit = GameState.GetBitIndex(3, 6);
+        toBit = GameState.GetBitIndex(2, 5);
+        Assert.IsTrue(GameLogic.TryApplyMove(ref state, fromBit, toBit));
+        
+        //Move back up as king 
+        fromBit = GameState.GetBitIndex(2, 7);
+        toBit = GameState.GetBitIndex(1, 6);
+        Assert.IsTrue(GameLogic.TryApplyMove(ref state, fromBit, toBit));
+    }
 
     private void ExecuteAndVerify(GameState state, (byte x, byte y) start,
         ((byte x, byte y) to, bool expectedSuccess)[] moves, bool? forceTurnAs)
     {
         foreach (var curr in moves)
         {
-            TestMoveValidity(state, new CheckersMove(start.x, start.y, curr.to.x, curr.to.y), curr.expectedSuccess, forceTurnAs);
+            TestMoveValidity(state, GameState.GetBitIndex(start.x, start.y), GameState.GetBitIndex(curr.to.x, curr.to.y), curr.expectedSuccess, forceTurnAs);
         }
     }
-    private void TestMoveValidity(GameState state, CheckersMove move, bool expectedSuccess, bool? forceTurnAs)
+    private void TestMoveValidity(GameState state, int fromBit, int toBit, bool expectedSuccess, bool? forceTurnAs)
     {
         if (forceTurnAs.HasValue)
         {
             state.IsPlayer1Turn = forceTurnAs.Value;
         }
-        var isValidMove = GameLogic.TryApplyMove(ref state, move);
+        var isValidMove = GameLogic.TryApplyMove(ref state, fromBit, toBit);
         
-        Assert.AreEqual(expectedSuccess, isValidMove, $"Move validity check failed for move {move.FromX},{move.FromY} -> {move.ToX},{move.ToY}");
+        var (fromX, fromY) = GameState.GetXY(fromBit);
+        var (toX, toY) = GameState.GetXY(toBit);
+        
+        Assert.AreEqual(expectedSuccess, isValidMove, $"Move validity check failed for move {fromX},{fromY} -> {toX},{toY}");
     }
 }

@@ -31,8 +31,7 @@ builder.Services
     .AddGraphQLServer()
     .AddQueryType<Query>();
 
-//In Memory Management and Game State 
-var gameState = new GameState(); 
+
 
 var app = builder.Build();
 
@@ -48,9 +47,13 @@ if (app.Environment.IsDevelopment())
 app.UseCors(myAllowSpecificOrigins);
 app.UseWebSockets();
 
-app.MapPost("/TryMakeMove", async (CheckersMove move) =>
+//In Memory Management and Game State 
+var gameState = new GameState(); 
+gameState.SetUpDefaultBoard();
+
+app.MapPost("/TryMakeMove", async (CheckersMoveRequest move) =>
 {
-    var validMove = GameLogic.TryApplyMove(ref gameState, move);
+    var validMove = GameLogic.TryApplyMove(ref gameState, move.FromIndex, move.ToIndex);
 
     if (validMove)
     {
@@ -80,3 +83,4 @@ app.Map("/ws", async context =>
 app.MapGraphQL();
 
 app.Run();
+record struct CheckersMoveRequest(byte FromIndex, byte ToIndex);

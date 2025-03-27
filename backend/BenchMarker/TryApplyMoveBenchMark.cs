@@ -18,7 +18,8 @@ var boardString = new string[]
     "........", // row 7
 };
 var state = GameLogicTests.CreateBoardFromStringArray(boardString);
-var move = new CheckersMove(1, 2, 5, 2);
+var fromBit = GameState.GetBitIndex(1, 2);
+var toBit = GameState.GetBitIndex(5, 2); 
 
 Console.WriteLine("Benchmarking TryApplyMove...");
 foreach (var count in iterationCounts)
@@ -32,7 +33,7 @@ foreach (var count in iterationCounts)
 
         for (int i = 0; i < count; i++)
         {
-            GameLogic.TryApplyMove(ref benchmarkState, move);
+            GameLogic.TryApplyMove(ref benchmarkState, fromBit, toBit);
         }
 
         stopwatch.Stop();
@@ -55,5 +56,12 @@ foreach (var count in iterationCounts)
     100000 iterations: Average 21093 ticks, which equals 2109300 ns
     1000000 iterations: Average 105546 ticks, which equals 10554600 ns
     10000000 iterations: Average 994107 ticks, which equals 99410700 ns
-
+    
+    
+    ///After Adding History Management. (no major loss) 
+    1000 iterations: Average 1085 ticks, which equals 108500 ns
+    10000 iterations: Average 4792 ticks, which equals 479200 ns
+    100000 iterations: Average 20095 ticks, which equals 2009500 ns
+    1000000 iterations: Average 81027 ticks, which equals 8102700 ns
+    10000000 iterations: Average 794730 ticks, which equals 79473000 ns
 */

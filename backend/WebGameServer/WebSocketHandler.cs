@@ -21,14 +21,9 @@ public static class WebSocketHandler
     }
 
     // Remove a WebSocket connection
-    private static async void RemoveSocketAsync(string socketId)
+    private static void RemoveSocketAsync(string socketId)
     {
-        Sockets.TryRemove(socketId, out WebSocket? socket);
-        if (socket != null)
-        {
-            await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, CancellationToken.None);
-            socket.Dispose();
-        }
+        Sockets.TryRemove(socketId, out _);
     }
 
     // Broadcast a message to all connected WebSocket clients
