@@ -1,7 +1,4 @@
-﻿using System.Numerics;
-using System.Runtime.CompilerServices;
-
-namespace WebGameServer.GameLogic;
+﻿namespace WebGameServer.GameLogic;
 
 public static class GameLogic
 {
@@ -128,7 +125,7 @@ public static class GameLogic
         
         //Flip Turns, no partial moves are possible. 
         state.IsPlayer1Turn = !state.IsPlayer1Turn;
-        
+        state.AddHistory(move);
         return true; 
     }
     
@@ -137,7 +134,7 @@ public static class GameLogic
         var opponentPieces = playerPieces ^ allPieces; //xor works due to playerPieces being in allPieces. 
         var possibleJumps = new List<(int finalJump, List<int> jumpedOver, bool king)>();
         
-        //This could be made more optimized with move history later (just check the most recent moves) 
+        //todo This could be made more optimized with move history later (just check the most recent moves) 
         for (var i = 0; i < 64; i++)
         {
             if (!GameState.IsBitSet(playerPieces, i)) continue;

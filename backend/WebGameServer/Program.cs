@@ -32,7 +32,7 @@ builder.Services
     .AddQueryType<Query>();
 
 //In Memory Management and Game State 
-var gameState = new CheckersGameState(); 
+var gameState = new GameState(); 
 
 var app = builder.Build();
 
@@ -50,12 +50,11 @@ app.UseWebSockets();
 
 app.MapPost("/TryMakeMove", async (CheckersMove move) =>
 {
-    var validMove = CheckersGameLogic.TryMove(gameState, (move.FromX, move.FromY), (move.ToX, move.ToY), out var newGameState);
+    var validMove = GameLogic.TryApplyMove(ref gameState, move);
 
-    if (newGameState != null)
+    if (validMove)
     {
-        gameState = newGameState;
-        var messageToSend = gameState.ToByteArray();
+        var messageToSend = GameStateByteSerializer.SerializeMostRecentHistory(gameState);
         await WebSocketHandler.SendMessageToAll(messageToSend); 
     }
     
@@ -68,9 +67,9 @@ app.Map("/ws", async context =>
     {
         // Accept the WebSocket request
         var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-        var gameStateBinary = gameState.ToByteArray();
+        var entireMoveHistoryBytes = GameStateByteSerializer.SerializeEntireHistory(gameState);
         
-        await WebSocketHandler.AddSocketAsync(webSocket, gameStateBinary);
+        await WebSocketHandler.AddSocketAsync(webSocket, entireMoveHistoryBytes);
     }
     else
     {

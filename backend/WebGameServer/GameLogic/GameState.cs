@@ -13,11 +13,12 @@ public enum GameResult : byte
 //Required for Byte Serialization
 [StructLayout(LayoutKind.Sequential)]
 public readonly record struct CheckersMove(byte FromX, byte FromY, byte ToX, byte ToY);
-
+    
 public struct GameState()
 {
     public const int BoardSize = 8; 
     private const ulong EmptyBoard = 0ul;
+    private const int DefaultHistoryCapacity = 64; 
     
     private const ulong DefaultPlayer1Pawns =
         (1UL << 1)  | (1UL << 3)  | (1UL << 5)  | (1UL << 7)  |
@@ -33,7 +34,10 @@ public struct GameState()
     public ulong Player1Kings = EmptyBoard;
     public ulong Player2Pawns = EmptyBoard;
     public ulong Player2Kings = EmptyBoard;
-    public CheckersMove[] MoveHistory = new CheckersMove[0]; 
+    public CheckersMove[] MoveHistory = new CheckersMove[DefaultHistoryCapacity];
+    public int MoveHistoryCount = 0;  
+    private int _MoveHistoryCapacity = DefaultHistoryCapacity;
+    
     public bool IsPlayer1Turn = true;
     public GameResult Result = GameResult.InProgress;
 
@@ -81,6 +85,25 @@ public struct GameState()
         IsBitSet(Player2Pawns, GetBitIndex(x, y)) ||
         IsBitSet(Player2Kings, GetBitIndex(x, y));
 
+    public void AddHistory(CheckersMove move)
+    {
+        if (MoveHistoryCount >= _MoveHistoryCapacity)
+        {
+            var newHistoryCapacity = _MoveHistoryCapacity << 1;
+            var largerArray = new CheckersMove[newHistoryCapacity];
+            Array.Copy(MoveHistory, largerArray, _MoveHistoryCapacity);
+            _MoveHistoryCapacity = newHistoryCapacity; 
+        }
+        MoveHistory[MoveHistoryCount] = move;
+        MoveHistoryCount++;
+    }
+    public void ClearHistory()
+    {
+        MoveHistoryCount = 0;
+        _MoveHistoryCapacity = DefaultHistoryCapacity;
+        MoveHistory = new CheckersMove[_MoveHistoryCapacity]; 
+    }
+    
     public bool IsSquareEmpty(int x, int y) => !IsSquareOccupied(x, y);
 
     public ulong GetPlayer1Pieces() => Player1Pawns | Player1Kings;

@@ -11,6 +11,5 @@ public class Query
             GameName = "Checkers Game 1",
             Player1Name = "Player 1",
             Player2Name = "Player 2",
-            GameStateSnapShot = new CheckersGameState().ToByteArray()
         };
 }
