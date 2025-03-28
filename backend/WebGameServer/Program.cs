@@ -1,6 +1,12 @@
 using WebGameServer;
 using WebGameServer.API;
 using WebGameServer.GameLogic;
+using WebGameServer.GameStateManagement;
+using WebGameServer.GameStateManagement.GameStatePersistence;
+using WebGameServer.GameStateManagement.GameStatePersistence.Postgres;
+using WebGameServer.GameStateManagement.KeyValueStore;
+using WebGameServer.State;
+using WebGameServer.WebSocketEncoding;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,8 +37,6 @@ builder.Services
     .AddGraphQLServer()
     .AddQueryType<Query>();
 
-
-
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -48,16 +52,28 @@ app.UseCors(myAllowSpecificOrigins);
 app.UseWebSockets();
 
 //In Memory Management and Game State 
-var gameState = new GameState(); 
-gameState.SetUpDefaultBoard();
+var postgresConn = new PostgresConnection();
+await postgresConn.Connect();  //BLOCK 
+
+IGameInfoPersistence persist = new PostgresGameInfoPersistence(postgresConn);
+
+var keyGameInfoStore = new InMemoryKeyGameInfoStore(); 
+var gameStateManager = new GameManager(keyGameInfoStore);
+var clientSocketManagement; 
 
 app.MapPost("/TryMakeMove", async (CheckersMoveRequest move) =>
 {
-    var validMove = GameLogic.TryApplyMove(ref gameState, move.FromIndex, move.ToIndex);
+    if (gameStateManager.TryApplyMove(move.gameId, move.FromIndex, move.ToIndex, out GameInfo gameInfo))
+    {
+        var message = GameHistoryUpdate = 
+        WebSocketHandler.SendMessageToAll([gameInfo.Player1, gameInfo.Player2], )
+    }; 
+    
+    var validMove = GameLogic.TryApplyMove(gameState, move.FromIndex, move.ToIndex);
 
     if (validMove)
     {
-        var messageToSend = GameStateByteSerializer.SerializeMostRecentHistory(gameState);
+        var messageToSend = GameMovesByteSerializer.SerializeMostRecentHistory(gameState);
         await WebSocketHandler.SendMessageToAll(messageToSend); 
     }
     
@@ -70,9 +86,9 @@ app.Map("/ws", async context =>
     {
         // Accept the WebSocket request
         var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-        var entireMoveHistoryBytes = GameStateByteSerializer.SerializeEntireHistory(gameState);
+        var newUserId = Guid.NewGuid();  
         
-        await WebSocketHandler.AddSocketAsync(webSocket, entireMoveHistoryBytes);
+        await WebSocketHandler.AddSocketAsync(webSocket, newUserId);
     }
     else
     {
@@ -83,4 +99,4 @@ app.Map("/ws", async context =>
 app.MapGraphQL();
 
 app.Run();
-record struct CheckersMoveRequest(byte FromIndex, byte ToIndex);
+record struct CheckersMoveRequest(Guid gameId, byte FromIndex, byte ToIndex);

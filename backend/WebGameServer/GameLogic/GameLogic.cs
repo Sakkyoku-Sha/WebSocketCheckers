@@ -1,11 +1,13 @@
-﻿namespace WebGameServer.GameLogic;
+﻿using WebGameServer.State;
+
+namespace WebGameServer.GameLogic;
 
 public static class GameLogic
 {
     private static bool IsOnBoard(int x, int y) => x >= 0 && x < GameState.BoardSize && y >= 0 && y < GameState.BoardSize;
     private static bool IsDarkSquare(int x, int y) => (x + y) % 2 == 1;
     
-    public static bool TryApplyMove(ref GameState state, int fromBitIndex, int toBitIndex)
+    public static bool TryApplyMove(GameState state, int fromBitIndex, int toBitIndex)
     {
         var (fromX, fromY) = GameState.GetXY(fromBitIndex);
         var (toX, toY) = GameState.GetXY(toBitIndex);
@@ -44,7 +46,7 @@ public static class GameLogic
         
         //Simple Move Case Valid moves are 
         //todo redo logic so that we don't call this method for single jumps (the majority of moves) 
-        var possibleJumps = DeterminePossibleJumpEndPoints(ref state, playerPieces, playerKings, allPieces);
+        var possibleJumps = DeterminePossibleJumpEndPoints(state, playerPieces, playerKings, allPieces);
         if (possibleJumps.Count > 0 && possibleJumps.All(x => x.finalJump != toBitIndex) ||
             (fromBitIndex == toBitIndex && possibleJumps.Count == 0))
         {
@@ -61,29 +63,36 @@ public static class GameLogic
             return false;
         }
         
-        //Move is now assume to be valid
-        //Remove From Location and Set Current Position.  
-        ref var playerPieceBoard = ref state.Player1Pawns; // Default assignment to avoid uninitialized ref
-        //Determine if you should promote. 
         var shouldPromote = ShouldPromote(toBitIndex, state.IsPlayer1Turn); 
-        
+        ulong playerPieceBoard; 
+        if (state.IsPlayer1Turn)
+        {
+            playerPieceBoard = isKing ? state.Player1Kings : state.Player1Pawns;
+        }
+        else
+        {
+            playerPieceBoard = isKing ? state.Player2Kings : state.Player2Pawns;
+        }
+
+        // Clear the bit and set the new bit on the selected board.
+        playerPieceBoard = GameState.ClearBit(playerPieceBoard, fromBitIndex);
+        playerPieceBoard = GameState.SetBit(playerPieceBoard, toBitIndex);
+
+        // Update the original state board after the modifications.
         if (state.IsPlayer1Turn)
         {
             if (isKing)
-                playerPieceBoard = ref state.Player1Kings;
+                state.Player1Kings = playerPieceBoard;
             else
-                playerPieceBoard = ref state.Player1Pawns;
+                state.Player1Pawns = playerPieceBoard;
         }
         else
         {
             if (isKing)
-                playerPieceBoard = ref state.Player2Kings;
+                state.Player2Kings = playerPieceBoard;
             else
-                playerPieceBoard = ref state.Player2Pawns;
+                state.Player2Pawns = playerPieceBoard;
         }
-        //MAKE SURE TO CLEAR AND THEN SET 
-        playerPieceBoard = GameState.ClearBit(playerPieceBoard, fromBitIndex);
-        playerPieceBoard = GameState.SetBit(playerPieceBoard, toBitIndex);
         
         var moveToStore = new CheckersMove()
         {
@@ -93,13 +102,8 @@ public static class GameLogic
         //Remove opponent pieces 
         if (possibleJumps.Count > 0)
         {
-            ref var opponentKings = ref state.Player2Kings;
-            ref var opponentsPawns = ref state.Player2Pawns;
-            if (!state.IsPlayer1Turn)
-            {
-                opponentKings = ref state.Player1Kings;
-                opponentsPawns = ref state.Player1Pawns;
-            }
+            var opponentKings = state.IsPlayer1Turn ? state.Player2Kings : state.Player1Kings;
+            var opponentsPawns = state.IsPlayer1Turn ? state.Player2Pawns : state.Player2Kings;
             
             ulong capturedPiecesBoard = 0ul;
             (int finalJump, List<int> jumpedOver, bool becameKing) jumpedIndexes = possibleJumps.Find(x => x.finalJump == toBitIndex);
@@ -108,6 +112,17 @@ public static class GameLogic
                 opponentKings = GameState.ClearBit(opponentKings, jumped);
                 opponentsPawns = GameState.ClearBit(opponentsPawns, jumped);
                 capturedPiecesBoard = GameState.SetBit(capturedPiecesBoard, jumped); 
+            }
+
+            if (state.IsPlayer1Turn)
+            {
+                state.Player2Kings = opponentKings;
+                state.Player2Pawns = opponentsPawns;
+            }
+            else
+            {
+                state.Player1Kings = opponentKings;
+                state.Player1Pawns = opponentsPawns;
             }
 
             moveToStore.CapturedPieces = capturedPiecesBoard;
@@ -136,7 +151,7 @@ public static class GameLogic
         return true; 
     }
     
-    private static List<(int finalJump, List<int> jumpedOver, bool king)> DeterminePossibleJumpEndPoints(ref GameState state, ulong playerPieces, ulong playerKings, ulong allPieces)
+    private static List<(int finalJump, List<int> jumpedOver, bool king)> DeterminePossibleJumpEndPoints(GameState state, ulong playerPieces, ulong playerKings, ulong allPieces)
     {
         var opponentPieces = playerPieces ^ allPieces; //xor works due to playerPieces being in allPieces. 
         var possibleJumps = new List<(int finalJump, List<int> jumpedOver, bool king)>();

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using WebGameServer.GameLogic;
+using WebGameServer.State;
 using WebGameServerTests;
 
 int[] iterationCounts = { 1000, 10000, 100000, 1000000, 10000000 };
@@ -33,7 +34,7 @@ foreach (var count in iterationCounts)
 
         for (int i = 0; i < count; i++)
         {
-            GameLogic.TryApplyMove(ref benchmarkState, fromBit, toBit);
+            GameLogic.TryApplyMove(benchmarkState, fromBit, toBit);
         }
 
         stopwatch.Stop();
@@ -64,4 +65,14 @@ foreach (var count in iterationCounts)
     100000 iterations: Average 20095 ticks, which equals 2009500 ns
     1000000 iterations: Average 81027 ticks, which equals 8102700 ns
     10000000 iterations: Average 794730 ticks, which equals 79473000 ns
+    
+    
+    //After Changing GameState to have getters and setters for serialization
+    Benchmarking TryApplyMove...
+    1000 iterations: Average 1134 ticks, which equals 113400 ns
+    10000 iterations: Average 5809 ticks, which equals 580900 ns
+    100000 iterations: Average 18862 ticks, which equals 1886200 ns
+    1000000 iterations: Average 70726 ticks, which equals 7072600 ns
+    10000000 iterations: Average 689924 ticks, which equals 68992400 ns
+
 */

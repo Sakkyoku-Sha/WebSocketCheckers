@@ -1,36 +1,41 @@
 ﻿using System.Collections.Concurrent;
 using System.Net.WebSockets;
+using WebGameServer.WebSocketEncoding;
+using WebGameServer.WebSocketEncoding.ToClientMessages;
 
 namespace WebGameServer;
 
 public static class WebSocketHandler
 {
     // Use a thread-safe dictionary to store all active WebSocket connections
-    private static readonly ConcurrentDictionary<string, WebSocket> Sockets = new();
-
+    private static readonly ConcurrentDictionary<Guid, WebSocket> Sockets = new();
+    
     // Add a new WebSocket connection
-    public static async Task AddSocketAsync(WebSocket socket, ArraySegment<byte> connectionMessage)
+    public static async Task AddSocketAsync(WebSocket socket, Guid userId)
     {
-        var socketId = Guid.NewGuid().ToString();
-        Sockets[socketId] = socket;
+        Sockets[userId] = socket;
         
-        await socket.SendAsync(connectionMessage, WebSocketMessageType.Binary, true, CancellationToken.None);
+        var messageToSend = WebSocketEncoder.Encode(new ClientConnectedMessage(userId));
+        await socket.SendAsync(messageToSend, WebSocketMessageType.Binary, true, CancellationToken.None);
         
         //!!Spawns a task that will live until the connection is closed. 
-        await StartReceiving(socket, socketId);
+        await StartReceiving(socket, userId);
     }
 
     // Remove a WebSocket connection
-    private static void RemoveSocketAsync(string socketId)
+    private static async Task RemoveSocketAsync(Guid socketId)
     {
-        Sockets.TryRemove(socketId, out _);
+        if (Sockets.TryRemove(socketId, out var socket))
+        {
+            await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
+        }
     }
 
     // Broadcast a message to all connected WebSocket clients
     public static async Task SendMessageToAll(ArraySegment<byte> message)
     {
         // Send the message to each connected WebSocket
-        List<string> disconnectedSocketIds = [];
+        List<Guid> disconnectedSocketIds = [];
         
         foreach (var (id, socket) in Sockets)
         {
@@ -51,14 +56,15 @@ public static class WebSocketHandler
         }
         foreach (var socketId in disconnectedSocketIds)
         {
-            RemoveSocketAsync(socketId);
+            await RemoveSocketAsync(socketId);
         }
     }
-
+    
     // Handle receiving messages from a WebSocket
-    private static async Task StartReceiving(WebSocket socket, string socketId)
+    public const int WebSocketBufferSize = 1024 * 4; 
+    private static async Task StartReceiving(WebSocket socket, Guid socketId)
     {
-        var buffer = new byte[1024 * 4];
+        var buffer = new byte[WebSocketBufferSize];
         while (socket.State == WebSocketState.Open)
         {
             try
@@ -69,11 +75,22 @@ public static class WebSocketHandler
                     await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closed by the client", CancellationToken.None);
                     RemoveSocketAsync(socketId);
                 }
+                if (result.MessageType == WebSocketMessageType.Binary)
+                {
+                    var fromClient = WebSocketDecoder.DecodeToWrapper(buffer);
+                    switch (fromClient.Type)
+                    {
+                        default:
+                            throw new ArgumentOutOfRangeException();
+                    }
+                }
+                
+                
             }
             catch (Exception)
             {
                 // Handle exception (e.g., connection closed)
-                RemoveSocketAsync(socketId);
+                await RemoveSocketAsync(socketId);
             }
         }
     }

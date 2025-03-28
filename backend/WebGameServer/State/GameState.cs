@@ -1,6 +1,4 @@
-﻿using System.Runtime.InteropServices;
-
-namespace WebGameServer.GameLogic;
+﻿namespace WebGameServer.State;
 
 public enum GameResult : byte
 {
@@ -13,7 +11,7 @@ public enum GameResult : byte
 //Required for Byte Serialization
 public record struct CheckersMove(byte FromIndex, byte ToIndex, bool Promoted, ulong CapturedPieces);
 
-public struct GameState()
+public class GameState()
 {
     public const int BoardSize = 8; 
     private const ulong EmptyBoard = 0ul;
@@ -29,16 +27,19 @@ public struct GameState()
         (1UL << 49) | (1UL << 51) | (1UL << 53) | (1UL << 55) |
         (1UL << 56) | (1UL << 58) | (1UL << 60) | (1UL << 62);
     
-    public ulong Player1Pawns = EmptyBoard; //bitboard representations 
-    public ulong Player1Kings = EmptyBoard;
-    public ulong Player2Pawns = EmptyBoard;
-    public ulong Player2Kings = EmptyBoard;
-    public CheckersMove[] MoveHistory = new CheckersMove[DefaultHistoryCapacity];
-    public int MoveHistoryCount = 0;  
+    /// Getters and setters exists to support JSON serialization for now....
+    public ulong Player1Pawns { get; set; }  = EmptyBoard;
+    public ulong Player1Kings { get; set; }  = EmptyBoard;
+    public ulong Player2Pawns { get; set; }  = EmptyBoard;
+    public ulong Player2Kings { get; set; } = EmptyBoard;
+    
+    //todo think about serialization of this field (ideally serialize this whole thing to bytes) 
+    public CheckersMove[] MoveHistory  { get; set; } = new CheckersMove[DefaultHistoryCapacity];
+    public int MoveHistoryCount { get; set; }  = 0;  
     private int _moveHistoryCapacity = DefaultHistoryCapacity;
     
-    public bool IsPlayer1Turn = true;
-    public GameResult Result = GameResult.InProgress;
+    public bool IsPlayer1Turn { get; set; }  = true;
+    public GameResult Result { get; set; }  = GameResult.InProgress;
 
     public GameState(GameState other) : this()
     {
@@ -53,6 +54,14 @@ public struct GameState()
         
         IsPlayer1Turn = other.IsPlayer1Turn;
         Result = other.Result;
+    }
+    
+    public GameState(bool useDefaultBoard) : this()
+    {
+        if (useDefaultBoard)
+        {
+            SetUpDefaultBoard();
+        }
     }
     
     public void SetUpDefaultBoard()

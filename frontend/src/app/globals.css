@@ -2,7 +2,7 @@
 
 html, body{
   height: 100%;
-  width: 100%;
+  margin: 0;
 }
 
 :root {
@@ -24,28 +24,99 @@ html, body{
   }
 }
 
-.game-area {
-  height: 50vw;
-  width: 50vw;
-  align-items: center;
-  justify-self: center;
+/* 
+  Main Page Layout 
+*/
+.page{
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: row;  
 }
-
+.game-history-container{
+  flex: 1;
+}
+.game-container {
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+.player-two-info,
+.player-one-info {
+  flex: 1;
+}
+.game-area {
+  flex: 10;
+}
+.game-search-container{
+  flex: 1;
+}
 .game-board {
   position: relative;
+  aspect-ratio: 1 / 1;
   height: 100%;
   width: 100%;
   background-image: url(/gameboard.svg);
   background-size: contain;
   background-repeat: no-repeat;
 }
+/* Container that holds the title and the list of moves */
+.game-history-container {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  max-width: 300px;
+  background-color: #f9f9f9; /* Light background for contrast */
+  border-radius: 8px;        /* Rounded corners */
+  padding: 1rem;            /* Spacing inside the container */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+  overflow-y: auto;
+}
 
-.player1-pawn, .player2-pawn, .player1-king, .player2-king {
-  background-size: contain;
-  background-repeat: no-repeat;
-  width: 12.5%;  /* 1/8th of the board */
-  height: 12.5%;
-  position: absolute;
+/* Title at the top of the history */
+.game-history-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  text-align: center;
+  color: #333;
+}
+
+/* Individual move entries */
+.game-history-item {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+  background-color: #ffffff;
+  border-radius: 4px;
+  border: #0a0a0a 1px solid;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+  color: #333;
+}
+
+/* Hover effect on each move item */
+.game-history-item:hover {
+  background-color: #f0f0f0;
+}
+
+/* Active or currently selected move */
+.game-history-item.active {
+  background-color: #e0e0e0;
+  font-weight: bold;
+}
+
+/* Additional styling for the move description text */
+.game-history-move-description {
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.deactivated-board {
+  filter: grayscale(10%) brightness(70%);
+  pointer-events: none; /* Disables interactions */
 }
 
 .player1-pawn {
@@ -60,11 +131,22 @@ html, body{
 .player2-king {
   background-image: url('/player2king.svg');
 }
-
 .selected {
   border: 4px solid yellow;
 }
 
+.history-selected-move{
+  background-color: #d63a3a;
+  border-radius: 4px;
+}
+
+.player1-pawn, .player2-pawn, .player1-king, .player2-king {
+  background-size: contain;
+  background-repeat: no-repeat;
+  width: 12.5%;  /* 1/8th of the board */
+  height: 12.5%;
+  position: absolute;
+}
 
 body {
   background: var(--background);

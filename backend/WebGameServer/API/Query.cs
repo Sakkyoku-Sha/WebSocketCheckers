@@ -1,15 +1,12 @@
-﻿using WebGameServer.GameLogic;
+﻿using WebGameServer.State;
 
 namespace WebGameServer.API;
 
 public class Query
 {
-    public ActiveGameInfo GetActiveGameInfo() =>
-        new ActiveGameInfo()
-        {
-            GameId = Guid.NewGuid(),
-            GameName = "Checkers Game 1",
-            Player1Name = "Player 1",
-            Player2Name = "Player 2",
-        };
+    public GameInfo[] GetActiveGameInfos() =>
+    [
+        new(Guid.NewGuid(), new PlayerInfo(Guid.NewGuid(), "player1"), new PlayerInfo(Guid.NewGuid(), "player 2"), new GameState()),
+        new(Guid.NewGuid(), new PlayerInfo(Guid.NewGuid(), "player3"), new PlayerInfo(Guid.NewGuid(), "player 4"), new GameState()),
+    ]; 
 }

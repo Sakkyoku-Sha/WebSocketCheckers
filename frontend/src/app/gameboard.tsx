@@ -1,7 +1,6 @@
 "use client"
-import { HtmlContext } from 'next/dist/server/route-modules/pages/vendored/contexts/entrypoints';
-import { unescape } from 'querystring';
-import { MouseEventHandler, useEffect, useState, useRef, useMemo, JSX } from 'react';
+import { MouseEventHandler, RefObject, useState, useRef, useMemo, JSX, Ref, useEffect } from 'react';
+import {Move, CheckersMove} from './page';
 
 enum GameBoardSquare{
     EMPTY = 0,
@@ -10,15 +9,6 @@ enum GameBoardSquare{
     PLAYER2PAWN = 3,
     PLAYER2KING = 4    
 }
-export interface Move {
-    FromIndex: number
-    ToIndex :number
-}
-
-export interface CheckersMove extends Move{
-    promoted: boolean,
-    captured: bigint //Bitboard representation
-}
 
 export interface GamePiece{
     row: number
@@ -26,18 +16,19 @@ export interface GamePiece{
     value: GameBoardSquare
 }
 
-export default function GameBoard() {
+export interface GameBoardProps {
+    moveHistoryRef : RefObject<CheckersMove[]>
+    moveNumber : number
+}
 
+export default function GameBoard(props: GameBoardProps) {
+
+    const moveHistory = props.moveHistoryRef;
+    const currRenderedMove = useRef<number>(props.moveNumber);
+    
     const [selectedSquare, setSelectedSquare] = useState<{ row: number, col: number } | null>(null);
     const [gameState, setGameState] = useState<number[]>(initialGameState);
     
-    const moveHistory = useRef<CheckersMove[]>([]); 
-    const currMove = useRef<number>(-1);
-
-    const IsPlayer1Turn = () => {
-        return moveHistory.current.length % 2 === 0;
-    }
-
     const TryMakeMove = (row: number, col: number) => {
 
         if (selectedSquare === undefined || selectedSquare === null){ return; }
@@ -57,29 +48,11 @@ export default function GameBoard() {
         })
     }
     
-    const PlayBoardTo = (targetMove : number) => {
-
-        let curr = currMove.current;
-        let moves = moveHistory.current;
-
-        if (curr === targetMove) {
-            return;
-        }
-
-        let move : CheckersMove;
-        while(curr >= 0 && curr > targetMove){
-            curr--; 
-            move = moves[curr];
-            UndoMove(move, curr%2 == 0, gameState);
-        }
-        while(curr < moves.length && curr < targetMove){
-            curr++;
-            move = moves[curr];
-            ApplyMove(move, gameState);
-        }
-        setGameState(() => {return [...gameState]})
-        currMove.current = targetMove; 
-    }
+    useEffect(() => {
+        const movedBoard = PlayMoves(currRenderedMove.current, props.moveNumber, moveHistory.current, gameState);
+        currRenderedMove.current = props.moveNumber;
+        setGameState(movedBoard);
+    }, [props.moveNumber]);
 
     const onBoardClick: MouseEventHandler<HTMLDivElement> = (event) => {
         const rect = event.currentTarget.getBoundingClientRect();
@@ -96,59 +69,6 @@ export default function GameBoard() {
         }
     };
     
-    const moveByteSize = 11;  //FromIndex = 1, ToIndex = 1, Promoted = 1, Captured = 8
-    const HandleWebSocketData = (byteData : Uint8Array) => {
-        
-        const moveCount = byteData.length / moveByteSize; 
-           
-        for(let i = 0; i < moveCount; i++){
-
-            let bitboard =  BigInt(0);
-            for (let j = 0; j < 8; j++) {
-                bitboard += BigInt(byteData[(i * moveByteSize + 3) + j]) << BigInt(8 * j);
-            }
-
-            const move : CheckersMove = {
-                FromIndex: byteData[i * moveByteSize],
-                ToIndex: byteData[i * moveByteSize + 1],
-                promoted : byteData[i * moveByteSize + 2] === 1,
-                captured : bitboard
-            }
-
-            moveHistory.current.push(move);
-        }
-        if(currMove.current !== moveHistory.current.length - 1){
-            PlayBoardTo(moveHistory.current.length-1);
-        } 
-    }
-
-    const wsRef = useRef<WebSocket | null>(null);
-    useEffect(() => {
-
-        if (!wsRef.current) {
-            wsRef.current = new WebSocket("ws://localhost:5050/ws");
-            wsRef.current.binaryType = "arraybuffer";
-
-            wsRef.current.onopen = () => {
-                console.log("Connected to server");
-            };
-            wsRef.current.onclose = () => console.log("Disconnected from server");
-            wsRef.current.onerror = (error) => console.error("WebSocket error:", error);
-
-            wsRef.current.onmessage = (event) => {
-                const byteData = new Uint8Array(event.data);
-                HandleWebSocketData(byteData)
-            };
-        }
-
-        return () => {
-            wsRef.current?.close();
-            wsRef.current = null;
-        };
-
-
-    }, []);
-
     const nonEmptySquares : GamePiece[] = useMemo(() => {
         const squaresList = new Array<GamePiece>();    
         for (let row = 0; row < 8; row++) {
@@ -162,8 +82,9 @@ export default function GameBoard() {
         return squaresList;
     }, [gameState]);
 
+    let deactivated = props.moveNumber === props.moveHistoryRef.current.length-1 ? "" : " deactivated-board";
     return (
-        <div className="game-board" onClick={onBoardClick}>
+        <div className={`game-board${deactivated}`} onClick={onBoardClick}>
           {nonEmptySquares.map((piece) => renderPiece(piece, selectedSquare))}
         </div>
       );
@@ -205,6 +126,7 @@ const UndoMove = (move : CheckersMove, isPlayer1Turn : boolean, gameBoard : numb
     gameBoard[move.FromIndex] = gameBoard[move.ToIndex];
     gameBoard[move.ToIndex] = GameBoardSquare.EMPTY;
 
+    //Todo send captured kings back to front end to know if we should recover a king or pawn.
     const toRecover = isPlayer1Turn ? GameBoardSquare.PLAYER2PAWN : GameBoardSquare.PLAYER1PAWN;
     const capturedSquares = move.captured; 
 
@@ -213,6 +135,29 @@ const UndoMove = (move : CheckersMove, isPlayer1Turn : boolean, gameBoard : numb
             gameBoard[bitIndex] = toRecover;
         }
     }
+}
+
+const PlayMoves = (currentIndex : number, targetIndex : number, moves : CheckersMove[], currentState : number[]) : number[] => {
+
+    if (currentIndex === targetIndex) {
+        return currentState;
+    }
+
+    const nextState = [...currentState];
+    let move : CheckersMove; 
+
+    while(currentIndex >= 0 && currentIndex > targetIndex){
+        move = moves[currentIndex];
+        UndoMove(move, currentIndex%2 == 0, nextState);
+        currentIndex--; 
+    }
+    while(currentIndex < moves.length && currentIndex < targetIndex){
+        currentIndex++;
+        move = moves[currentIndex];
+        ApplyMove(move, nextState);
+    }
+    
+    return nextState;
 }
 
 // Temp value untill we actually get the server to send game state with the init on websocket connect. 
