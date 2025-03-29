@@ -1,7 +1,6 @@
 ﻿using WebGameServer.State;
 
 namespace WebGameServer.GameLogic;
-
 public static class GameLogic
 {
     private static bool IsOnBoard(int x, int y) => x >= 0 && x < GameState.BoardSize && y >= 0 && y < GameState.BoardSize;

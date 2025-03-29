@@ -7,7 +7,7 @@ public static class WebSocketDecoder
 {
     public static T Decode<T>(byte[] webSocketBuffer) where T : IFromClientMessage<T>
     {
-        if (webSocketBuffer.Length != WebSocketHandler.WebSocketBufferSize)
+        if (webSocketBuffer.Length != SessionSocketHandler.WebSocketBufferSize)
         {
             throw new Exception("This code assumes the entire message from clients exists within the buffer, if this changes review this CODE!!!!!"); 
         }
@@ -32,7 +32,7 @@ public static class WebSocketDecoder
     
     public static FromClientWrapper DecodeToWrapper(byte[] webSocketBuffer)
     {
-        if (webSocketBuffer.Length != WebSocketHandler.WebSocketBufferSize)
+        if (webSocketBuffer.Length != SessionSocketHandler.WebSocketBufferSize)
         {
             throw new Exception("This code assumes the entire message from clients exists within the buffer, if this changes review this CODE!!!!!"); 
         }

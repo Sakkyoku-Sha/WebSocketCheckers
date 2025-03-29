@@ -32,4 +32,15 @@ public class InMemoryKeyGameInfoStore : IKeyGameInfoStore
     {
         _gameInfos.Clear();
     }
+
+    public IEnumerable<GameInfo> GamesWhere(Func<GameInfo, bool> func)
+    {
+        foreach (var gameInfo in _gameInfos.Values)
+        {
+            if (func(gameInfo))
+            {
+                yield return gameInfo;
+            }
+        }
+    }
 }

@@ -24,7 +24,7 @@ public class GameStateTests
         state.AddHistory(move);
         
         Assert.IsTrue(state.MoveHistoryCount == 1);
-        Assert.IsTrue(state.MoveHistory[0].Equals(move));
+        Assert.IsTrue(state.GetHistory()[0].Equals(move));
     }
     
     

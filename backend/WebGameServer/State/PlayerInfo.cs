@@ -2,12 +2,12 @@
 
 public class PlayerInfo
 {
-    public Guid PlayerId { get; set; } //used to map to WebSocket 
+    public Guid UserId { get; set; } //used to map to WebSocket 
     public string PlayerName { get; set; }
 
-    public PlayerInfo(Guid playerId, string playerName)
+    public PlayerInfo(Guid userId, string playerName)
     {   
-        PlayerId = playerId;
+        UserId = userId;
         PlayerName = playerName;
     }
 }

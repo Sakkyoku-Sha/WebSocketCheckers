@@ -1,34 +1,89 @@
-﻿using WebGameServer.GameStateManagement.KeyValueStore;
+﻿using System.Collections.Concurrent;
+using WebGameServer.GameStateManagement.KeyValueStore;
 using WebGameServer.State;
+using WebGameServer.GameLogic;
 
 namespace WebGameServer.GameStateManagement;
 
 public class GameManager
 {
-    private readonly IKeyGameInfoStore _store; 
-    public GameManager(IKeyGameInfoStore store)
+    private readonly IKeyGameInfoStore _gameInfoStore; 
+    private readonly ConcurrentDictionary<Guid, GameInfo> _playerGames;
+    
+    public GameManager(IKeyGameInfoStore gameInfoStore)
     {
-        _store = store; 
+        _gameInfoStore = gameInfoStore; 
+        _playerGames = new ConcurrentDictionary<Guid, GameInfo>();
     }
 
-    public GameInfo AddGame()
+    public GameInfo CreateNewGame(Guid playerId)
     {
         var newGameId = Guid.NewGuid();
         var newGameState = new GameState(true); 
-        var dummyPlayer1 = new PlayerInfo(Guid.NewGuid(), "Player1"); 
-        var dummyPlayer2 = new PlayerInfo(Guid.NewGuid(), "Player2");
-        var newGameInfo = new GameInfo(newGameId, dummyPlayer1, dummyPlayer2, newGameState);
+        var dummyPlayer1 = new PlayerInfo(playerId, "Player1"); 
+        var newGameInfo = new GameInfo(newGameId, dummyPlayer1, null, newGameState);
         
-        _store.SetGameInfo(newGameId, newGameInfo);
+        _gameInfoStore.SetGameInfo(newGameId, newGameInfo);
         return newGameInfo; 
     }
     public void RemoveGame(Guid gameId)
     {
-        _store.RemoveGameInfo(gameId);
+        lock (ExecuteJoinGameLock)
+        {
+            _gameInfoStore.RemoveGameInfo(gameId);
+        }
     }
     public bool TryGetGame(Guid gameId, out GameInfo? gameInfo)
     {
-        return _store.TryGetState(gameId, out gameInfo);
+        return _gameInfoStore.TryGetState(gameId, out gameInfo);
     }
     
+    //To make joining games Thread Safe
+    private static readonly Lock ExecuteJoinGameLock = new Lock();
+    public bool TryJoinGame(Guid requestGameId, Guid requestPlayerId, out GameInfo? gameInfo)
+    {
+        gameInfo = null;
+        //Race Condition Exists on Joining a Match, only make it so 1 player can join a game. 
+        lock (ExecuteJoinGameLock)
+        {
+            if (_playerGames.TryGetValue(requestPlayerId, out var _))
+            {
+                // Player is already in a game
+                return false;
+            }
+            if (!_gameInfoStore.TryGetState(requestGameId, out gameInfo) || gameInfo == null)
+            {
+                // Game does not exist
+                return false;
+            }
+            if(gameInfo.Player2 != null)
+            {
+                // Game is already full
+                return false;
+            }
+            
+            // Game exists and player can join
+            _playerGames[requestPlayerId] = gameInfo;
+            _gameInfoStore.SetGameInfo(requestGameId, gameInfo);
+        }
+
+        return true;
+    }
+
+    public IEnumerable<GameInfo> ResolveOpenGames()
+    {
+        return _gameInfoStore.GamesWhere(x => x.Player2 == null); 
+    }
+
+    public bool TryApplyMove(Guid moveGameId, byte moveFromIndex, byte moveToIndex, out GameInfo? gameInfo)
+    {
+        gameInfo = null;
+        if (!_gameInfoStore.TryGetState(moveGameId, out gameInfo) || gameInfo == null)
+        {
+            return false;
+        }
+        
+        var gameState = gameInfo.GameState;
+        return GameLogic.GameLogic.TryApplyMove(gameState, moveFromIndex, moveToIndex);
+    }
 }

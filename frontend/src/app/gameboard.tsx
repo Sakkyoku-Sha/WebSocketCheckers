@@ -1,6 +1,6 @@
 "use client"
 import { MouseEventHandler, RefObject, useState, useRef, useMemo, JSX, Ref, useEffect } from 'react';
-import {Move, CheckersMove} from './page';
+import {CheckersMove} from './page';
 
 enum GameBoardSquare{
     EMPTY = 0,
@@ -19,6 +19,7 @@ export interface GamePiece{
 export interface GameBoardProps {
     moveHistoryRef : RefObject<CheckersMove[]>
     moveNumber : number
+    gameIdRef : RefObject<string | null>
 }
 
 export default function GameBoard(props: GameBoardProps) {
@@ -33,9 +34,10 @@ export default function GameBoard(props: GameBoardProps) {
 
         if (selectedSquare === undefined || selectedSquare === null){ return; }
         
-        const move: Move = {
+        const moveRequest = {
+            GameId: props.gameIdRef.current,
             FromIndex: selectedSquare.row * 8 + selectedSquare.col,
-            ToIndex: row * 8 + col
+            ToIndex: row * 8 + col,
         };
 
         const endPoint = 'http://localhost:5050/TryMakeMove';
@@ -44,7 +46,7 @@ export default function GameBoard(props: GameBoardProps) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(move)
+            body: JSON.stringify(moveRequest)
         })
     }
     
@@ -111,10 +113,10 @@ const determineClassName = (square: GameBoardSquare) : string => {
 }
 
 const ApplyMove = (move : CheckersMove, gameBoard : number[]) : void => {
-    gameBoard[move.ToIndex] = gameBoard[move.FromIndex];
-    gameBoard[move.FromIndex] = GameBoardSquare.EMPTY;
+    gameBoard[move.toIndex] = gameBoard[move.fromIndex];
+    gameBoard[move.fromIndex] = GameBoardSquare.EMPTY;
 
-    const capturedSquares = move.captured; 
+    const capturedSquares = move.capturedPieces; 
 
     for (let bitIndex = 0; bitIndex < 64; bitIndex++) {
         if ((capturedSquares & (BigInt(1) << BigInt(bitIndex))) !== BigInt(0)) {
@@ -123,12 +125,12 @@ const ApplyMove = (move : CheckersMove, gameBoard : number[]) : void => {
     }
 }
 const UndoMove = (move : CheckersMove, isPlayer1Turn : boolean, gameBoard : number[]) : void => {
-    gameBoard[move.FromIndex] = gameBoard[move.ToIndex];
-    gameBoard[move.ToIndex] = GameBoardSquare.EMPTY;
+    gameBoard[move.fromIndex] = gameBoard[move.toIndex];
+    gameBoard[move.toIndex] = GameBoardSquare.EMPTY;
 
     //Todo send captured kings back to front end to know if we should recover a king or pawn.
     const toRecover = isPlayer1Turn ? GameBoardSquare.PLAYER2PAWN : GameBoardSquare.PLAYER1PAWN;
-    const capturedSquares = move.captured; 
+    const capturedSquares = move.capturedPieces; 
 
     for (let bitIndex = 0; bitIndex < 64; bitIndex++) {
         if ((capturedSquares & (BigInt(1) << BigInt(bitIndex))) !== BigInt(0)) {

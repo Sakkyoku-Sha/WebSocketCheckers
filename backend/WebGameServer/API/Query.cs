@@ -1,12 +1,17 @@
-﻿using WebGameServer.State;
+﻿using WebGameServer.GameStateManagement;
+using WebGameServer.State;
 
 namespace WebGameServer.API;
 
 public class Query
-{
-    public GameInfo[] GetActiveGameInfos() =>
-    [
-        new(Guid.NewGuid(), new PlayerInfo(Guid.NewGuid(), "player1"), new PlayerInfo(Guid.NewGuid(), "player 2"), new GameState()),
-        new(Guid.NewGuid(), new PlayerInfo(Guid.NewGuid(), "player3"), new PlayerInfo(Guid.NewGuid(), "player 4"), new GameState()),
-    ]; 
+{   
+    private readonly GameManager GameStateManagement;
+    public Query(GameManager gameStateManagement)
+    {
+        GameStateManagement = gameStateManagement;
+    }
+    
+    public GameInfo[] GetOpenGames() => GameStateManagement.ResolveOpenGames()
+        .Select(gameInfo => new GameInfo(gameInfo.GameId, gameInfo.Player1, gameInfo.Player2, new GameState())) //Intentionally cull the game state 
+        .ToArray();
 }

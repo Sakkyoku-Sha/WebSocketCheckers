@@ -34,7 +34,8 @@ public class GameState()
     public ulong Player2Kings { get; set; } = EmptyBoard;
     
     //todo think about serialization of this field (ideally serialize this whole thing to bytes) 
-    public CheckersMove[] MoveHistory  { get; set; } = new CheckersMove[DefaultHistoryCapacity];
+    private CheckersMove[] MoveHistory  { get; set; } = new CheckersMove[DefaultHistoryCapacity];
+    
     public int MoveHistoryCount { get; set; }  = 0;  
     private int _moveHistoryCapacity = DefaultHistoryCapacity;
     
@@ -105,6 +106,15 @@ public class GameState()
         MoveHistoryCount = 0;
         _moveHistoryCapacity = DefaultHistoryCapacity;
         MoveHistory = new CheckersMove[_moveHistoryCapacity]; 
+    }
+    
+    public Span<CheckersMove> GetHistory()
+    {
+        if (MoveHistoryCount == 0)
+        {
+            return Span<CheckersMove>.Empty;
+        }
+        return new Span<CheckersMove>(MoveHistory, 0, MoveHistoryCount);
     }
 
     public ulong GetPlayer1Pieces() => Player1Pawns | Player1Kings;

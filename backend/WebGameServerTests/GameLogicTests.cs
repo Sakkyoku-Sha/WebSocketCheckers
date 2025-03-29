@@ -341,7 +341,7 @@ public class GameLogicTests
         Assert.IsFalse(GameState.IsBitSet(state.Player2Kings, GameState.GetBitIndex(1,2)));
         Assert.IsFalse(GameState.IsBitSet(state.Player2Kings, GameState.GetBitIndex(3,2)));
 
-        var capturedPiecesBoard = state.MoveHistory[0].CapturedPieces;
+        var capturedPiecesBoard = state.GetHistory()[0].CapturedPieces;
         Assert.IsTrue(GameState.IsBitSet(capturedPiecesBoard, GameState.GetBitIndex(1,4))); //Removed all jumped pieces 
         Assert.IsTrue(GameState.IsBitSet(capturedPiecesBoard, GameState.GetBitIndex(3,4)));
         Assert.IsTrue(GameState.IsBitSet(capturedPiecesBoard, GameState.GetBitIndex(1,2)));
@@ -429,6 +429,6 @@ public class GameLogicTests
         var (fromX, fromY) = GameState.GetXY(fromBit);
         var (toX, toY) = GameState.GetXY(toBit);
         
-        Assert.AreEqual(expectedSuccess, isValidMove, $"Move validity check failed for move {fromX},{fromY} -> {toX},{toY}");
+        Assert.That(expectedSuccess, Is.EqualTo(isValidMove), $"Move validity check failed for move {fromX},{fromY} -> {toX},{toY}");
     }
 }

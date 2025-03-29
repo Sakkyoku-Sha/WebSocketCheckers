@@ -2,23 +2,49 @@
 import GameBoard from "./gameboard";
 import { useEffect, useRef, RefObject, useState } from "react";
 import GameHistory from "./gamehistory";
+import { encodeIdentifyUserMessage } from "./WebSocket/Encode";
+import { decodeMessage, GameHistoryUpdateMessage, PlayerJoinedMessage, SessionStartMessage, ToClientMessageType } from "./WebSocket/Decode";
 
-export interface Move {
-  FromIndex: number
-  ToIndex :number
+export interface CheckersMove{
+  fromIndex: number;      
+  toIndex: number;        
+  promoted: boolean;     
+  capturedPieces: bigint; 
 }
-
-export interface CheckersMove extends Move{
-  promoted: boolean,
-  captured: bigint //Bitboard representation
-}
-
 
 export default function Home() {
 
   const moveHistory = useRef<CheckersMove[]>([]); 
   const wsRef = useRef<WebSocket | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  const userId = useRef<string | null>(null);
+  const gameId = useRef<string | null>(null);
+
   const [moveNumber, setMoveNumber] = useState<number>(-1);
+  
+  const HandleWebSocketData = (byteData : ArrayBuffer) => {
+        
+    const resultingMessage = decodeMessage(byteData)
+
+    switch(resultingMessage?.type) {
+      case ToClientMessageType.SessionStartMessage:
+        const sessionStartMessage = resultingMessage?.message as SessionStartMessage;
+        sessionIdRef.current = sessionStartMessage.sessionId;
+        console.log("Session started:", sessionStartMessage.sessionId);
+        break;
+      case ToClientMessageType.GameHistoryUpdate:
+        const gameHistoryUpdate = resultingMessage?.message as GameHistoryUpdateMessage;
+        moveHistory.current = moveHistory.current.concat(gameHistoryUpdate.moves);
+        setMoveNumber(moveHistory.current.length - 1);
+        break;
+      case ToClientMessageType.PlayerJoined:
+        const playerJoinedMessage = resultingMessage?.message as PlayerJoinedMessage;
+        console.log("Player joined:", playerJoinedMessage.userId);
+        break;
+      default:
+        console.error("Unknown message type:", resultingMessage?.type);
+    }
+  }
 
   useEffect(() => {
 
@@ -28,16 +54,18 @@ export default function Home() {
 
           wsRef.current.onopen = () => {
               console.log("Connected to server");
+              //Send clientId to server 
+              const newUserId = crypto.randomUUID(); 
+              const message = encodeIdentifyUserMessage(newUserId);
+              
+              userId.current = newUserId;
+              wsRef.current?.send(message);
           };
           wsRef.current.onclose = () => console.log("Disconnected from server");
           wsRef.current.onerror = (error) => console.error("WebSocket error:", error);
 
           wsRef.current.onmessage = (event) => {
-              const byteData = new Uint8Array(event.data);
-              HandleWebSocketData(byteData, moveHistory);
-              
-              const latestMove = moveHistory.current.length - 1;
-              setMoveNumber(latestMove);
+              HandleWebSocketData(event.data as ArrayBuffer);
           };
       }
 
@@ -47,8 +75,35 @@ export default function Home() {
       };
   }, []);
 
-
+  function createGame(event: any): void {
   
+    fetch("http://localhost:5050/CreateGame", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        userId: userId.current,
+      })})
+      .then((response) => {
+        console.log("Response:", response);
+        if (!response.ok) {
+          throw new Error("Network response was not ok");
+        }
+        // Parse JSON response
+        return response.json(); // This extracts the content from the response body as JSON
+      })
+      .then((data) => {
+        console.log("Response Content:", data); // Now you can use the parsed data
+        gameId.current = data.gameId; // Assuming the server returns a gameId
+      })
+      .catch((error) => {
+        console.error("Fetch error:", error);
+      });
+ 
+  
+  }
+
   return (
     <div className="page">
       <div className="game-history-container">
@@ -60,37 +115,18 @@ export default function Home() {
           
         </div>
         <div className="game-area">
-          <GameBoard moveHistoryRef={moveHistory} moveNumber={moveNumber}/>
+          <GameBoard moveHistoryRef={moveHistory} moveNumber={moveNumber} gameIdRef={gameId}/>
         </div>
         <div className="player-one-info">
 
         </div>
       </div>
       <div className="game-search-container">
+        <button className="create-game-button" onClick={createGame}>Create Game</button>
+      
       </div>
     </div>
   );
 }
 
 const moveByteSize = 11;  //FromIndex = 1, ToIndex = 1, Promoted = 1, Captured = 8
-const HandleWebSocketData = (byteData : Uint8Array, currMoveHistoryRef : RefObject<CheckersMove[]>) => {
-          
-  const moveCount = byteData.length / moveByteSize; 
-     
-  for(let i = 0; i < moveCount; i++){
-
-      let capturedBitboard =  BigInt(0);
-      for (let j = 0; j < 8; j++) {
-        capturedBitboard += BigInt(byteData[(i * moveByteSize + 3) + j]) << BigInt(8 * j);
-      }
-
-      const move : CheckersMove = {
-          FromIndex: byteData[i * moveByteSize],
-          ToIndex: byteData[i * moveByteSize + 1],
-          promoted : byteData[i * moveByteSize + 2] === 1,
-          captured : capturedBitboard
-      }
-
-      currMoveHistoryRef.current.push(move);
-  }
-}

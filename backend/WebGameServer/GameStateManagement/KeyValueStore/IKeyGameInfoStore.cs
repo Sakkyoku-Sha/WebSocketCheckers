@@ -11,5 +11,6 @@ public interface IKeyGameInfoStore
     public Task<bool> TryGetStateAsync(Guid gameId, out GameInfo? state); //Non Blocking Calls 
     public Task SetGameInfoAsync(Guid gameId, GameInfo gameInfo);
 
-    public void ClearStore(); 
+    public void ClearStore();
+    IEnumerable<GameInfo> GamesWhere(Func<GameInfo, bool> func);
 }

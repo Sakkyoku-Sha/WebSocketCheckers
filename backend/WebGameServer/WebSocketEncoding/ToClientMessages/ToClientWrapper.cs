@@ -43,9 +43,7 @@ public ref struct ToClientWrapper : IByteSerializable<ToClientWrapper>
 }
 public enum ToClientMessageType : ushort
 {
-    Connected = 0, 
-    GameHistoryUpdate = 1, 
-    GameCreatedResponse = 2, 
-    GameJoinedResponse = 3,
+    SessionStartMessage = 0,
+    PlayerJoined = 1,
+    GameHistoryUpdate = 2, 
 }
-
