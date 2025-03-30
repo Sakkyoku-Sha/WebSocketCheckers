@@ -27,7 +27,7 @@ public static class WebSocketDecoder
             throw new Exception("Attempting to decode a message to a type for which it does not apply"); 
         }
 
-        return T.FromBytes(payLoad);
+        return T.FromByteSpan(payLoad);
     }
     
     public static FromClientWrapper DecodeToWrapper(byte[] webSocketBuffer)

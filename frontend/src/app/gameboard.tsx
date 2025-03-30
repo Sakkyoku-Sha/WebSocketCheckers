@@ -1,6 +1,7 @@
 "use client"
 import { MouseEventHandler, RefObject, useState, useRef, useMemo, JSX, Ref, useEffect } from 'react';
 import {CheckersMove} from './page';
+import { fetchTryMakeMove } from './Fetch/Fetch';
 
 enum GameBoardSquare{
     EMPTY = 0,
@@ -33,21 +34,12 @@ export default function GameBoard(props: GameBoardProps) {
     const TryMakeMove = (row: number, col: number) => {
 
         if (selectedSquare === undefined || selectedSquare === null){ return; }
-        
-        const moveRequest = {
-            GameId: props.gameIdRef.current,
-            FromIndex: selectedSquare.row * 8 + selectedSquare.col,
-            ToIndex: row * 8 + col,
-        };
+        if (props.gameIdRef.current === null) { return; }
 
-        const endPoint = 'http://localhost:5050/TryMakeMove';
-        fetch(endPoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(moveRequest)
-        })
+        const toIndex = row * 8 + col;
+        const fromIndex = selectedSquare.row * 8 + selectedSquare.col;
+
+        fetchTryMakeMove(props.gameIdRef.current, fromIndex, toIndex);
     }
     
     useEffect(() => {

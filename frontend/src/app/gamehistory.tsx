@@ -1,5 +1,5 @@
 "useclient";
-import { useEffect, RefObject, useState, JSX } from "react";
+import { RefObject } from "react";
 import { CheckersMove } from "./page";
 
 

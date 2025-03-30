@@ -11,7 +11,6 @@ public class Query
         GameStateManagement = gameStateManagement;
     }
     
-    public GameInfo[] GetOpenGames() => GameStateManagement.ResolveOpenGames()
-        .Select(gameInfo => new GameInfo(gameInfo.GameId, gameInfo.Player1, gameInfo.Player2, new GameState())) //Intentionally cull the game state 
+    public GameInfo[] OpenGames() => GameStateManagement.ResolveOpenGames() //Intentionally cull the game state 
         .ToArray();
 }

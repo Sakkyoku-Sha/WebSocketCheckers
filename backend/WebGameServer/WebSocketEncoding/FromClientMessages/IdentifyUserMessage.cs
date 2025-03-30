@@ -8,7 +8,7 @@ public record IdentifyUserMessage(Guid UserId) : IFromClientMessage<IdentifyUser
     {
         return UserId.ToByteArray();
     }
-    public static IdentifyUserMessage FromBytes(Span<byte> data)
+    public static IdentifyUserMessage FromByteSpan(Span<byte> data)
     {
         return new IdentifyUserMessage(new Guid(data));
     }

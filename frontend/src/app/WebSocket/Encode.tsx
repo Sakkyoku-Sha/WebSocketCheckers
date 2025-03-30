@@ -59,7 +59,7 @@ export function encodeGuidNet(uuidString: string): Uint8Array {
         for (let i = 16; i < 32; i += 2) {
             bytes[byteIndex++] = hexToByte(cleanedUuid.substring(i, i + 2));
         }
-    } catch (e) {
+    } catch (e : any) {
          throw new Error(`Failed to parse hex in UUID string: ${uuidString}. Error: ${e.message}`);
     }
 

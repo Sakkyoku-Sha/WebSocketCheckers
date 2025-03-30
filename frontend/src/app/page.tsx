@@ -1,9 +1,11 @@
 "use client"
-import GameBoard from "./gameboard";
-import { useEffect, useRef, RefObject, useState } from "react";
-import GameHistory from "./gamehistory";
+import React, { useEffect, useRef, RefObject, useState } from "react";
 import { encodeIdentifyUserMessage } from "./WebSocket/Encode";
-import { decodeMessage, GameHistoryUpdateMessage, PlayerJoinedMessage, SessionStartMessage, ToClientMessageType } from "./WebSocket/Decode";
+import { decodeMessage, GameHistoryUpdateMessage, PlayerJoinedMessage, SessionStartMessageDecoded, ToClientMessageType } from "./WebSocket/Decode";
+import GameBoard from "./gameboard";
+import GameHistory from "./gameHistory";
+import GamesPanel from "./gamesPanel";
+import { ApolloClient, ApolloProvider, InMemoryCache } from "@apollo/client";
 
 export interface CheckersMove{
   fromIndex: number;      
@@ -12,13 +14,29 @@ export interface CheckersMove{
   capturedPieces: bigint; 
 }
 
+const graphqlEndPoint = "http://localhost:5050/graphql";
+const client = new ApolloClient({
+    uri: graphqlEndPoint,
+    cache: new InMemoryCache(),
+}); 
+
+const ResolveUserId = () => {
+    const userId = localStorage.getItem("userId");
+    if (userId === null) {
+        const newUserId = crypto.randomUUID();
+        localStorage.setItem("userId", newUserId);
+        return newUserId;
+    }
+    return userId;
+}
+
 export default function Home() {
 
-  const moveHistory = useRef<CheckersMove[]>([]); 
-  const wsRef = useRef<WebSocket | null>(null);
-  const sessionIdRef = useRef<string | null>(null);
   const userId = useRef<string | null>(null);
   const gameId = useRef<string | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const moveHistory = useRef<CheckersMove[]>([]); 
+  const sessionIdRef = useRef<string | null>(null);
 
   const [moveNumber, setMoveNumber] = useState<number>(-1);
   
@@ -28,9 +46,13 @@ export default function Home() {
 
     switch(resultingMessage?.type) {
       case ToClientMessageType.SessionStartMessage:
-        const sessionStartMessage = resultingMessage?.message as SessionStartMessage;
+        const sessionStartMessage = resultingMessage?.message as SessionStartMessageDecoded;
         sessionIdRef.current = sessionStartMessage.sessionId;
         console.log("Session started:", sessionStartMessage.sessionId);
+        if(sessionStartMessage.isInGame && sessionStartMessage.gameInfo) {
+          gameId.current = sessionStartMessage.gameInfo.gameId;
+          console.log("Rejoinin gameID:", sessionStartMessage.gameInfo.gameId);
+        }
         break;
       case ToClientMessageType.GameHistoryUpdate:
         const gameHistoryUpdate = resultingMessage?.message as GameHistoryUpdateMessage;
@@ -55,7 +77,9 @@ export default function Home() {
           wsRef.current.onopen = () => {
               console.log("Connected to server");
               //Send clientId to server 
-              const newUserId = crypto.randomUUID(); 
+              const newUserId = ResolveUserId();
+              
+              
               const message = encodeIdentifyUserMessage(newUserId);
               
               userId.current = newUserId;
@@ -75,57 +99,31 @@ export default function Home() {
       };
   }, []);
 
-  function createGame(event: any): void {
-  
-    fetch("http://localhost:5050/CreateGame", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        userId: userId.current,
-      })})
-      .then((response) => {
-        console.log("Response:", response);
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
-        }
-        // Parse JSON response
-        return response.json(); // This extracts the content from the response body as JSON
-      })
-      .then((data) => {
-        console.log("Response Content:", data); // Now you can use the parsed data
-        gameId.current = data.gameId; // Assuming the server returns a gameId
-      })
-      .catch((error) => {
-        console.error("Fetch error:", error);
-      });
- 
-  
-  }
+
 
   return (
-    <div className="page">
-      <div className="game-history-container">
-        <div className="game-history-title">Game History</div> 
-        <GameHistory moveHistory={moveHistory} moveNumber={moveNumber} onMoveClick={(index) => setMoveNumber(index)}/>
-      </div>
-      <div className="game-container">
-        <div className="player-two-info">
-          
+      <div className="page">
+        <div className="game-history-container">
+          <div className="game-history-title">Game History</div> 
+          <GameHistory moveHistory={moveHistory} moveNumber={moveNumber} onMoveClick={(index) => setMoveNumber(index)}/>
         </div>
-        <div className="game-area">
-          <GameBoard moveHistoryRef={moveHistory} moveNumber={moveNumber} gameIdRef={gameId}/>
-        </div>
-        <div className="player-one-info">
+        <div className="game-container">
+          <div className="player-two-info">
+            
+          </div>
+          <div className="game-area">
+            <GameBoard moveHistoryRef={moveHistory} moveNumber={moveNumber} gameIdRef={gameId}/>
+          </div>
+          <div className="player-one-info">
 
+          </div>
         </div>
+        <ApolloProvider client={client}>
+          <div className="games-panel-container">
+            <GamesPanel userIdRef={userId} gameIdRef={gameId}/>
+          </div>
+        </ApolloProvider>
       </div>
-      <div className="game-search-container">
-        <button className="create-game-button" onClick={createGame}>Create Game</button>
-      
-      </div>
-    </div>
   );
 }
 

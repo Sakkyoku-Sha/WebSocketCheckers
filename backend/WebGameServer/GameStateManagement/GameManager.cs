@@ -1,7 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using WebGameServer.GameStateManagement.KeyValueStore;
 using WebGameServer.State;
-using WebGameServer.GameLogic;
 
 namespace WebGameServer.GameStateManagement;
 
@@ -21,9 +20,14 @@ public class GameManager
         var newGameId = Guid.NewGuid();
         var newGameState = new GameState(true); 
         var dummyPlayer1 = new PlayerInfo(playerId, "Player1"); 
-        var newGameInfo = new GameInfo(newGameId, dummyPlayer1, null, newGameState);
+        var title = $"Checkers {new string(newGameId.ToString().Take(10).ToArray())}";
+        var status = GameStatus.WaitingForPlayers; 
+        
+        var newGameInfo = new GameInfo(newGameId, dummyPlayer1, null, newGameState, title, status);
         
         _gameInfoStore.SetGameInfo(newGameId, newGameInfo);
+        _playerGames[playerId] = newGameInfo; 
+        
         return newGameInfo; 
     }
     public void RemoveGame(Guid gameId)
@@ -72,7 +76,7 @@ public class GameManager
 
     public IEnumerable<GameInfo> ResolveOpenGames()
     {
-        return _gameInfoStore.GamesWhere(x => x.Player2 == null); 
+        return _gameInfoStore.GamesWhere(x => x.Status == GameStatus.WaitingForPlayers); 
     }
 
     public bool TryApplyMove(Guid moveGameId, byte moveFromIndex, byte moveToIndex, out GameInfo? gameInfo)
@@ -85,5 +89,10 @@ public class GameManager
         
         var gameState = gameInfo.GameState;
         return GameLogic.GameLogic.TryApplyMove(gameState, moveFromIndex, moveToIndex);
+    }
+
+    public bool PlayerInGame(Guid requestUserId)
+    {
+        return _playerGames.ContainsKey(requestUserId);
     }
 }

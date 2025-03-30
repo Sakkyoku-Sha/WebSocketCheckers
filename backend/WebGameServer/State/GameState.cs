@@ -1,14 +1,17 @@
-﻿namespace WebGameServer.State;
+﻿using System.Runtime.InteropServices;
+
+namespace WebGameServer.State;
 
 public enum GameResult : byte
 {
     Player1Win = 0,
     Player2Win = 1,
     Draw = 2,
-    InProgress = 3
+    InProgress = 3,
 }
 
 //Required for Byte Serialization
+[StructLayout(LayoutKind.Sequential)]
 public record struct CheckersMove(byte FromIndex, byte ToIndex, bool Promoted, ulong CapturedPieces);
 
 public class GameState()

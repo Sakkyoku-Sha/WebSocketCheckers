@@ -6,10 +6,10 @@ namespace WebGameServer.WebSocketEncoding;
 public interface IByteSerializable<out T> where T : allows ref struct
 {
     public byte[] ToBytes();
-    public static abstract T FromBytes(Span<byte> data);
+    public static abstract T FromByteSpan(Span<byte> data);
 }
 
-public interface IToClientMessage<out T> : IByteSerializable<T>
+public interface IToClientMessage<out T> : IByteSerializable<T> where T : allows ref struct
 {
     static abstract ToClientMessageType GetMessageType(); 
 }

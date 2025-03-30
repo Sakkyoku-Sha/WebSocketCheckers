@@ -1,5 +1,3 @@
-using System.Net;
-using System.Text.Json;
 using WebGameServer;
 using WebGameServer.API;
 using WebGameServer.GameStateManagement;
@@ -16,6 +14,7 @@ await postgresConn.Connect();  //BLOCK
 IGameInfoPersistence persist = new PostgresGameInfoPersistence(postgresConn);
 var keyGameInfoStore = new InMemoryKeyGameInfoStore(); 
 var gameStateManager = new GameManager(keyGameInfoStore);
+var sessionSocketHandler = new SessionSocketHandler(gameStateManager);
 
 //Setup Web Server 
 var builder = WebApplication.CreateBuilder(args);
@@ -58,20 +57,28 @@ if (app.Environment.IsDevelopment())
 
 app.MapPost("/CreateGame", (CreateGameRequest request) =>
 {
-    if(!SessionSocketHandler.HasClient(request.UserId))
+    Console.WriteLine($"Trying to create game for {request.UserId}");
+    if(!sessionSocketHandler.HasClient(request.UserId))
     {
         return Results.BadRequest("No active User with the provided Id");
+    }
+    if (gameStateManager.PlayerInGame(request.UserId))
+    {   
+        return Results.Conflict("User already in a game");
     }
     
     var gameInfo = gameStateManager.CreateNewGame(request.UserId);
     var message = new CreateGameResponse(gameInfo.GameId); //For now just let anyone create a game anytime.
+    
+    Console.WriteLine($"Created game {gameInfo.GameId} for {request.UserId}");
     
     return Results.Json(message, statusCode: 201);
 });
 
 app.MapPost("/JoinGame", (JoinGameRequest request) =>
 {
-    if (!SessionSocketHandler.HasClient(request.UserId))
+    Console.WriteLine($"Trying put {request.UserId} into {request.GameId}");
+    if (!sessionSocketHandler.HasClient(request.UserId))
     {
         return Results.BadRequest("No active User with the provided Id");
     }
@@ -84,11 +91,15 @@ app.MapPost("/JoinGame", (JoinGameRequest request) =>
        return Results.Conflict("Failed to Join Game");
     }
     
+    Console.WriteLine($"Put {request.UserId} into {request.GameId}");
     //Send the player joined message to all players in the game.
-    var message = WebSocketEncoder.Encode(new PlayerJoinedMessage(gameInfo.Player2!));
-    
-    //Fire and forget updates to websockets assumes that if a game exists then player1 exists 
-    _ = SessionSocketHandler.SendMessageToUsersAsync([gameInfo.Player1.UserId], message);    
+    if (gameInfo.Player2 != null)
+    {
+        var message = WebSocketEncoder.Encode(new PlayerJoinedMessage(gameInfo.Player2!));
+        
+        //Fire and forget updates to websockets assumes that if a game exists then player1 exists 
+        _ = sessionSocketHandler.SendMessageToUsersAsync([gameInfo.Player1.UserId], message);    
+    }
     
     //Fire and forget persist to not block the response. 
     _ = persist.SaveGameInfoAsync(gameInfo);
@@ -98,6 +109,7 @@ app.MapPost("/JoinGame", (JoinGameRequest request) =>
 
 app.MapPost("/TryMakeMove", async (CheckersMoveRequest move) =>
 {
+    Console.WriteLine($"Trying to make move from {move.GameId} : {move.FromIndex} to {move.ToIndex}");
     if(move.GameId == null)
     {
         return Results.BadRequest("GameId cannot be null");
@@ -110,10 +122,10 @@ app.MapPost("/TryMakeMove", async (CheckersMoveRequest move) =>
     {
         return Results.Conflict("Failed to make move");
     }
-
+    Console.WriteLine($"Move made from {move.GameId} : {move.FromIndex} to {move.ToIndex}");
     var latestMove = gameInfo.GameState.GetHistory()[^1];
     var message = WebSocketEncoder.Encode(new GameHistoryUpdateMessage([latestMove]));
-    await SessionSocketHandler.SendMessageToUsersAsync(gameInfo.Player2?.UserId == null ? [gameInfo.Player1.UserId] : [gameInfo.Player1.UserId, gameInfo.Player2.UserId], message);
+    await sessionSocketHandler.SendMessageToUsersAsync(gameInfo.Player2?.UserId == null ? [gameInfo.Player1.UserId] : [gameInfo.Player1.UserId, gameInfo.Player2.UserId], message);
     
     //Fire off a persist operation to not block the response.
     _ = persist.SaveGameInfoAsync(gameInfo);
@@ -129,7 +141,7 @@ app.Map("/ws", async context =>
     if (context.WebSockets.IsWebSocketRequest)
     {
         var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-        await SessionSocketHandler.AddSocketAsync(webSocket);
+        await sessionSocketHandler.AddSocketAsync(webSocket);
     }
     else
     {

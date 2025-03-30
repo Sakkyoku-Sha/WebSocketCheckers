@@ -1,17 +1,24 @@
 ﻿using System.Collections.Concurrent;
 using System.Net.WebSockets;
+using WebGameServer.GameStateManagement;
 using WebGameServer.WebSocketEncoding;
 using WebGameServer.WebSocketEncoding.FromClientMessages;
 using WebGameServer.WebSocketEncoding.ToClientMessages;
 
 namespace WebGameServer;
 
-public static class SessionSocketHandler
+public class SessionSocketHandler
 {
     private static readonly ConcurrentDictionary<Guid, WebSocket> SessionIdToSockets = new();
-    private static readonly Dictionary<Guid, Guid> UserIdToSessionId = new();
+    private static readonly ConcurrentDictionary<Guid, Guid> UserIdToSessionId = new();
     
-    public static async Task AddSocketAsync(WebSocket socket)
+    private GameManager _gameManager;
+    public SessionSocketHandler(GameManager gameManager)
+    {
+        _gameManager = gameManager;
+    }
+    
+    public async Task AddSocketAsync(WebSocket socket)
     {
         var sessionId = Guid.NewGuid();
         SessionIdToSockets[sessionId] = socket;
@@ -24,7 +31,7 @@ public static class SessionSocketHandler
         await StartReceiving(socket, sessionId);
     }
     
-    private static async Task CloseAsync(Guid sessionId)
+    private async Task CloseAsync(Guid sessionId)
     {
         if (SessionIdToSockets.TryRemove(sessionId, out var socket))
         {
@@ -35,15 +42,15 @@ public static class SessionSocketHandler
         var userId = UserIdToSessionId.FirstOrDefault(x => x.Value == sessionId).Key;
         if (userId != Guid.Empty)
         {
-            UserIdToSessionId.Remove(userId);
+            UserIdToSessionId.Remove(userId, out _);
         }
     }
-    public static bool HasClient(Guid userId)
+    public bool HasClient(Guid userId)
     {
         return UserIdToSessionId.ContainsKey(userId);
     }
     
-    public static async Task SendMessageToUsersAsync(IEnumerable<Guid> userIds, ArraySegment<byte> message)
+    public async Task SendMessageToUsersAsync(IEnumerable<Guid> userIds, ArraySegment<byte> message)
     {
         // Send the message to each connected WebSocket
         var sessionsToCleanUp = new List<(Guid sessionId, Guid userId)>();
@@ -57,7 +64,7 @@ public static class SessionSocketHandler
             {
                 throw new Exception("UserId should never be correlated to a sessionId that does not exist in the socket dictionary");
             }
-            if (socket.State != WebSocketState.Open)
+            if (socket.State != WebSocketState.Open && socket.State != WebSocketState.Connecting)
             {
                 sessionsToCleanUp.Add((sessionId, userId));
                 continue;
@@ -74,13 +81,13 @@ public static class SessionSocketHandler
         foreach (var (sessionId, userId) in sessionsToCleanUp)
         {
             await CloseAsync(sessionId);
-            UserIdToSessionId.Remove(userId);
+            UserIdToSessionId.Remove(userId, out _);
         }
     }
     
     // Handle receiving messages from a WebSocket, runs forever 
     public const int WebSocketBufferSize = 1024 * 4; 
-    private static async Task StartReceiving(WebSocket socket, Guid sessionId)
+    private async Task StartReceiving(WebSocket socket, Guid sessionId)
     {
         var buffer = new byte[WebSocketBufferSize];
         while (socket.State == WebSocketState.Open)
@@ -100,9 +107,21 @@ public static class SessionSocketHandler
                         switch (fromClient.Type)
                         {
                             case FromClientMessageType.IdentifyUser:
-                                var userIdMessage = IdentifyUserMessage.FromBytes(fromClient.Payload);
-                                HandleIdentifyUserMessage(userIdMessage, sessionId);
+                                var userIdMessage = IdentifyUserMessage.FromByteSpan(fromClient.Payload);
+                                UserIdToSessionId[userIdMessage.UserId] = sessionId;
+
                                 Console.WriteLine("UserId: " + userIdMessage.UserId);
+                                if (_gameManager.PlayerInGame(userIdMessage.UserId))
+                                {
+                                    Console.WriteLine($"UserId: {userIdMessage.UserId} reconnected, and is in a game");                                    
+                                    
+                                }
+                          
+                                
+                                
+                                
+                                
+                                
                                 break;
                             default:
                                 throw new ArgumentOutOfRangeException();
@@ -121,10 +140,5 @@ public static class SessionSocketHandler
                 await CloseAsync(sessionId);
             }
         }
-    }
-
-    private static void HandleIdentifyUserMessage(IdentifyUserMessage identifyUserIdMessage, Guid sessionId)
-    {
-        UserIdToSessionId[identifyUserIdMessage.UserId] = sessionId;
     }
 }

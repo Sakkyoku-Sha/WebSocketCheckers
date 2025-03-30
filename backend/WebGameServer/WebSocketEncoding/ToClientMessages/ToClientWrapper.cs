@@ -19,14 +19,14 @@ public ref struct ToClientWrapper : IByteSerializable<ToClientWrapper>
         MemoryMarshal.Write(span, in VersionId);
         MemoryMarshal.Write(span.Slice(2), in Type);
         MemoryMarshal.Write(span.Slice(4), in PayLoadSize);
-    
+        
         // Copy Payload
         Payload.CopyTo(span.Slice(6));
 
         return result;
     }
 
-    public static ToClientWrapper FromBytes(Span<byte> data)
+    public static ToClientWrapper FromByteSpan(Span<byte> data)
     {
         var versionId = MemoryMarshal.Cast<byte, ushort>(data.Slice(0, 2))[0];
         var type = MemoryMarshal.Cast<byte, ToClientMessageType>(data.Slice(2, 2))[0];
@@ -46,4 +46,5 @@ public enum ToClientMessageType : ushort
     SessionStartMessage = 0,
     PlayerJoined = 1,
     GameHistoryUpdate = 2, 
+    GameInfoMessage = 3,
 }

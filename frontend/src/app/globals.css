@@ -50,7 +50,7 @@ html, body{
 .game-area {
   flex: 10;
 }
-.game-search-container{
+.games-panel-container{
   flex: 1;
 }
 .game-board {
@@ -96,7 +96,16 @@ html, body{
   transition: background-color 0.2s ease-in-out;
   color: #333;
 }
-
+.game-item{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 10px;
+  box-shadow: inset 5px #eaeaea;
+  background-color: #ffffff;
+  padding: 0.5rem 0.75rem;
+  color : #333;
+}
 
 /* Hover effect on each move item */
 .game-history-item:hover {

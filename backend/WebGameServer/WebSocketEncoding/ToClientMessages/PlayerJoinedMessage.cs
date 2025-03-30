@@ -24,14 +24,14 @@ public record PlayerJoinedMessage(Guid UserId, string UserName) : IToClientMessa
         var totalSize = userIdBytes.Length + userNameBytes.Length + 2;
         var buffer = new byte[totalSize];
         
-        Array.Copy(userIdBytes, 0, buffer, 0, userIdBytes.Length);
-        Array.Copy(userNameLengthBytes, 0, buffer, userIdBytes.Length, userNameLengthBytes.Length);
-        Array.Copy(userNameBytes, 0, buffer, userIdBytes.Length + userNameLengthBytes.Length, userNameBytes.Length);
+        Buffer.BlockCopy(userIdBytes, 0, buffer, 0, userIdBytes.Length);
+        Buffer.BlockCopy(userNameLengthBytes, 0, buffer, userIdBytes.Length, userNameLengthBytes.Length);
+        Buffer.BlockCopy(userNameBytes, 0, buffer, userIdBytes.Length + userNameLengthBytes.Length, userNameBytes.Length);
         
         return buffer;
     }
 
-    public static PlayerJoinedMessage FromBytes(Span<byte> data)
+    public static PlayerJoinedMessage FromByteSpan(Span<byte> data)
     {
         if (data.Length < 18) // 16 bytes for UserId + 2 bytes for UserNameLength
             throw new ArgumentException("Data length is not sufficient to deserialize PlayerJoinedMessage.");

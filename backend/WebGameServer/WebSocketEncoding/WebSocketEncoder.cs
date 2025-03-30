@@ -4,7 +4,7 @@ namespace WebGameServer.WebSocketEncoding;
 
 public static class WebSocketEncoder
 {
-    public static byte[] Encode<T>(T value) where T : IToClientMessage<T>
+    public static byte[] Encode<T>(T value) where T : IToClientMessage<T>, allows ref struct
     {
         var payLoad = value.ToBytes();
         var toMessage = new ToClientWrapper()
