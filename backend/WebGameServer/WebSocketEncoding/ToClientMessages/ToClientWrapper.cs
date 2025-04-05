@@ -1,12 +1,12 @@
 ﻿using System.Runtime.InteropServices;
 
 namespace WebGameServer.WebSocketEncoding.ToClientMessages;
-public ref struct ToClientWrapper : IByteSerializable<ToClientWrapper>
+public struct ToClientWrapper : IByteSerializable<ToClientWrapper>
 {
     public ushort VersionId;
     public ToClientMessageType Type;
     public ushort PayLoadSize; 
-    public Span<byte> Payload;
+    public byte[] Payload;
     
     public byte[] ToBytes()
     {
@@ -37,7 +37,7 @@ public ref struct ToClientWrapper : IByteSerializable<ToClientWrapper>
             VersionId = versionId,
             Type = type,
             PayLoadSize = payloadSize,
-            Payload = data.Slice(6, payloadSize)
+            Payload = data.Slice(6, payloadSize).ToArray()
         };
     }
 }
@@ -46,5 +46,5 @@ public enum ToClientMessageType : ushort
     SessionStartMessage = 0,
     PlayerJoined = 1,
     GameHistoryUpdate = 2, 
-    GameInfoMessage = 3,
+    ActiveGameInfoMessage = 3,
 }

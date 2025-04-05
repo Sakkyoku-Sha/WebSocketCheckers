@@ -5,7 +5,7 @@ using WebGameServer.State; // Assuming previous definitions are here
 namespace WebGameServer.WebSocketEncoding.ToClientMessages
 {
     // Changed from 'ref struct' to 'struct' to allow FromByteSpan implementation
-    public readonly struct GameInfoMessage : IToClientMessage<GameInfoMessage>
+    public readonly struct ActiveGameInfoMessage : IToClientMessage<ActiveGameInfoMessage>
     {
         private const byte PLAYER2_EXISTS = 1;
         private const byte PLAYER2_DOES_NOT_EXIST = 0;
@@ -21,7 +21,7 @@ namespace WebGameServer.WebSocketEncoding.ToClientMessages
         private readonly CheckersMove[] gameHistory; // Keep as array
 
         // --- Constructor remains similar ---
-        public GameInfoMessage(GameInfo gameinfo)
+        public ActiveGameInfoMessage(GameInfo gameinfo)
         {
             gameId = gameinfo.GameId;
             status = gameinfo.Status;
@@ -46,7 +46,7 @@ namespace WebGameServer.WebSocketEncoding.ToClientMessages
         }
 
         // Private constructor for FromByteSpan
-        private GameInfoMessage(Guid gameId, GameStatus status, string gameName, Guid p1Id, string p1Name, Guid? p2Id, string? p2Name, CheckersMove[] history)
+        private ActiveGameInfoMessage(Guid gameId, GameStatus status, string gameName, Guid p1Id, string p1Name, Guid? p2Id, string? p2Name, CheckersMove[] history)
         {
             this.gameId = gameId;
             this.status = status;
@@ -195,7 +195,7 @@ namespace WebGameServer.WebSocketEncoding.ToClientMessages
         /// Deserializes the message content from a byte span.
         /// Assumes data contains ONLY the payload, not the message type byte.
         /// </summary>
-        public static GameInfoMessage FromByteSpan(Span<byte> data)
+        public static ActiveGameInfoMessage FromByteSpan(Span<byte> data)
         {
             var offset = 0;
 
@@ -277,13 +277,13 @@ namespace WebGameServer.WebSocketEncoding.ToClientMessages
 
 
             // Construct the message using the private constructor
-            return new GameInfoMessage(gameId, status, gameName, player1Id, player1Name, player2Id, player2Name, gameHistory);
+            return new ActiveGameInfoMessage(gameId, status, gameName, player1Id, player1Name, player2Id, player2Name, gameHistory);
         }
 
 
         public static ToClientMessageType GetMessageType()
         {
-            return ToClientMessageType.GameInfoMessage;
+            return ToClientMessageType.ActiveGameInfoMessage;
         }
 
         // Optional: Add getters if needed (struct fields are private)

@@ -1,3 +1,4 @@
+using NUnit.Framework;
 using WebGameServer;
 using WebGameServer.API;
 using WebGameServer.GameStateManagement;
@@ -13,7 +14,7 @@ await postgresConn.Connect();  //BLOCK
 
 IGameInfoPersistence persist = new PostgresGameInfoPersistence(postgresConn);
 var keyGameInfoStore = new InMemoryKeyGameInfoStore(); 
-var gameStateManager = new GameManager(keyGameInfoStore);
+var gameStateManager = new GameStateManager(keyGameInfoStore);
 var sessionSocketHandler = new SessionSocketHandler(gameStateManager);
 
 //Setup Web Server 
@@ -82,7 +83,7 @@ app.MapPost("/JoinGame", (JoinGameRequest request) =>
     {
         return Results.BadRequest("No active User with the provided Id");
     }
-    if(!gameStateManager.TryGetGame(request.GameId, out _))
+    if(!gameStateManager.TryGetGameByGameId(request.GameId, out _))
     {
         return Results.BadRequest("No active game with the provided Id");
     }
@@ -114,15 +115,15 @@ app.MapPost("/TryMakeMove", async (CheckersMoveRequest move) =>
     {
         return Results.BadRequest("GameId cannot be null");
     }
-    if (!gameStateManager.TryGetGame(move.GameId.Value, out var gameInfo) || gameInfo == null)
+    if (!gameStateManager.TryGetGameByGameId(move.GameId.Value, out var gameInfo) || gameInfo == null)
     {
        return Results.BadRequest("No active game with the provided Id");
     }
     if (!gameStateManager.TryApplyMove(move.GameId.Value, move.FromIndex, move.ToIndex, out var gameState) || gameState == null)
     {
-        return Results.Conflict("Failed to make move");
+        return Results.Conflict("Attempted to make an Invalid Move");
     }
-    Console.WriteLine($"Move made from {move.GameId} : {move.FromIndex} to {move.ToIndex}");
+    Console.WriteLine($"Move made for game: {move.GameId} from {move.FromIndex} to {move.ToIndex}");
     var latestMove = gameInfo.GameState.GetHistory()[^1];
     var message = WebSocketEncoder.Encode(new GameHistoryUpdateMessage([latestMove]));
     await sessionSocketHandler.SendMessageToUsersAsync(gameInfo.Player2?.UserId == null ? [gameInfo.Player1.UserId] : [gameInfo.Player1.UserId, gameInfo.Player2.UserId], message);

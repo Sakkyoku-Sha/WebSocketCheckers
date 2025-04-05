@@ -5,12 +5,11 @@ namespace WebGameServer.API;
 
 public class Query
 {   
-    private readonly GameManager GameStateManagement;
-    public Query(GameManager gameStateManagement)
+    private readonly GameStateManager _gameStateStateManagement;
+    public Query(GameStateManager gameStateStateManagement)
     {
-        GameStateManagement = gameStateManagement;
+        _gameStateStateManagement = gameStateStateManagement;
     }
     
-    public GameInfo[] OpenGames() => GameStateManagement.ResolveOpenGames() //Intentionally cull the game state 
-        .ToArray();
+    public GameInfo[] OpenGames() => _gameStateStateManagement.ResolveOpenGames().ToArray();
 }

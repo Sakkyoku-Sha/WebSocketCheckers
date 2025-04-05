@@ -4,12 +4,12 @@ using WebGameServer.State;
 
 namespace WebGameServer.GameStateManagement;
 
-public class GameManager
+public class GameStateManager
 {
     private readonly IKeyGameInfoStore _gameInfoStore; 
     private readonly ConcurrentDictionary<Guid, GameInfo> _playerGames;
     
-    public GameManager(IKeyGameInfoStore gameInfoStore)
+    public GameStateManager(IKeyGameInfoStore gameInfoStore)
     {
         _gameInfoStore = gameInfoStore; 
         _playerGames = new ConcurrentDictionary<Guid, GameInfo>();
@@ -32,23 +32,23 @@ public class GameManager
     }
     public void RemoveGame(Guid gameId)
     {
-        lock (ExecuteJoinGameLock)
+        lock (ExecuteExitJoinGameLock)
         {
             _gameInfoStore.RemoveGameInfo(gameId);
         }
     }
-    public bool TryGetGame(Guid gameId, out GameInfo? gameInfo)
+    public bool TryGetGameByGameId(Guid gameId, out GameInfo? gameInfo)
     {
         return _gameInfoStore.TryGetState(gameId, out gameInfo);
     }
     
     //To make joining games Thread Safe
-    private static readonly Lock ExecuteJoinGameLock = new Lock();
+    private static readonly Lock ExecuteExitJoinGameLock = new Lock();
     public bool TryJoinGame(Guid requestGameId, Guid requestPlayerId, out GameInfo? gameInfo)
     {
         gameInfo = null;
         //Race Condition Exists on Joining a Match, only make it so 1 player can join a game. 
-        lock (ExecuteJoinGameLock)
+        lock (ExecuteExitJoinGameLock)
         {
             if (_playerGames.TryGetValue(requestPlayerId, out var _))
             {
@@ -70,8 +70,29 @@ public class GameManager
             _playerGames[requestPlayerId] = gameInfo;
             _gameInfoStore.SetGameInfo(requestGameId, gameInfo);
         }
-
         return true;
+    }
+    
+    public void RemoveUsersFromGames(Guid userId)
+    {
+        lock (ExecuteExitJoinGameLock)
+        {
+            if (_playerGames.TryRemove(userId, out var gameInfo))
+            {
+                if (gameInfo.Player1?.UserId == userId)
+                {
+                    gameInfo.Player1 = null;
+                }
+                else if (gameInfo.Player2?.UserId == userId)
+                {
+                    gameInfo.Player2 = null;
+                }
+                if (gameInfo.Player1 == null && gameInfo.Player2 == null) //No Users are in the game so remove it. 
+                {
+                    _gameInfoStore.RemoveGameInfo(gameInfo.GameId);
+                }
+            }
+        }
     }
 
     public IEnumerable<GameInfo> ResolveOpenGames()
@@ -94,5 +115,10 @@ public class GameManager
     public bool PlayerInGame(Guid requestUserId)
     {
         return _playerGames.ContainsKey(requestUserId);
+    }
+
+    public bool TryGetGameByUserId(Guid userId, out GameInfo? gameInfo)
+    {
+        return _playerGames.TryGetValue(userId, out gameInfo);
     }
 }
