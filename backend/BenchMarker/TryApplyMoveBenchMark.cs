@@ -34,7 +34,7 @@ foreach (var count in iterationCounts)
 
         for (int i = 0; i < count; i++)
         {
-            GameLogic.TryApplyMove(benchmarkState, fromBit, toBit);
+            GameLogic.TryApplyMove(ref benchmarkState, fromBit, toBit);
         }
 
         stopwatch.Stop();
@@ -74,5 +74,24 @@ foreach (var count in iterationCounts)
     100000 iterations: Average 18862 ticks, which equals 1886200 ns
     1000000 iterations: Average 70726 ticks, which equals 7072600 ns
     10000000 iterations: Average 689924 ticks, which equals 68992400 ns
+
+    //After Updating back end to use structs and use a stack instead of recursion. 
+    //Seems to cause slow down at the highend, likely due to object creation and GC 
+    
+    1000 iterations: Average 935 ticks, which equals 93500 ns
+    10000 iterations: Average 4411 ticks, which equals 441100 ns
+    100000 iterations: Average 21965 ticks, which equals 2196500 ns
+    1000000 iterations: Average 97177 ticks, which equals 9717700 ns
+    10000000 iterations: Average 967530 ticks, which equals 96753000 ns
+
+    //Consulted Stack Alloc implementation results, hard to tell the perf results for large itterations due to PC 
+    //pc memory issues, but the min ticks are very very good now. 
+    
+    1000 iterations: Average 408 ticks, which equals 40800 ns
+    10000 iterations: Average 944 ticks, which equals 94400 ns
+    100000 iterations: Average 9564 ticks, which equals 956400 ns
+    1000000 iterations: Average 82966 ticks, which equals 8296600 ns
+    10000000 iterations: Average 818376 ticks, which equals 81837600 ns
+
 
 */

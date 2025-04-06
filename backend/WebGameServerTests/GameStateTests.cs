@@ -14,18 +14,7 @@ public class GameStateTests
         Assert.IsTrue(GameState.IsBitSet(state.Player1Pawns, GameState.GetBitIndex(0, 5)));
     }
 
-    [Test]
-    public void AddHistory()
-    {
-        var state = new GameState();
-        state.SetUpDefaultBoard();
-        
-        var move = new CheckersMove(0, 9, false, 0);
-        state.AddHistory(move);
-        
-        Assert.IsTrue(state.MoveHistoryCount == 1);
-        Assert.IsTrue(state.GetHistory()[0].Equals(move));
-    }
+   
     
     
 }

@@ -1,6 +1,4 @@
-﻿using System.Runtime.InteropServices;
-
-namespace WebGameServer.State;
+﻿namespace WebGameServer.State;
 
 public enum GameResult : byte
 {
@@ -10,15 +8,10 @@ public enum GameResult : byte
     InProgress = 3,
 }
 
-//Required for Byte Serialization
-[StructLayout(LayoutKind.Sequential)]
-public record struct CheckersMove(byte FromIndex, byte ToIndex, bool Promoted, ulong CapturedPieces);
-
-public class GameState()
+public struct GameState()
 {
     public const int BoardSize = 8; 
     private const ulong EmptyBoard = 0ul;
-    private const int DefaultHistoryCapacity = 64; 
     
     private const ulong DefaultPlayer2Pawns =
         (1UL << 1)  | (1UL << 3)  | (1UL << 5)  | (1UL << 7)  |
@@ -30,20 +23,12 @@ public class GameState()
         (1UL << 49) | (1UL << 51) | (1UL << 53) | (1UL << 55) |
         (1UL << 56) | (1UL << 58) | (1UL << 60) | (1UL << 62);
     
-    /// Getters and setters exists to support JSON serialization for now....
-    public ulong Player1Pawns { get; set; }  = EmptyBoard;
-    public ulong Player1Kings { get; set; }  = EmptyBoard;
-    public ulong Player2Pawns { get; set; }  = EmptyBoard;
-    public ulong Player2Kings { get; set; } = EmptyBoard;
-    
-    //todo think about serialization of this field (ideally serialize this whole thing to bytes) 
-    private CheckersMove[] MoveHistory  { get; set; } = new CheckersMove[DefaultHistoryCapacity];
-    
-    public int MoveHistoryCount { get; set; }  = 0;  
-    private int _moveHistoryCapacity = DefaultHistoryCapacity;
-    
-    public bool IsPlayer1Turn { get; set; }  = true;
-    public GameResult Result { get; set; }  = GameResult.InProgress;
+    public ulong Player1Pawns  = EmptyBoard;
+    public ulong Player1Kings = EmptyBoard;
+    public ulong Player2Pawns = EmptyBoard;
+    public ulong Player2Kings = EmptyBoard;
+    public bool IsPlayer1Turn = true;
+    public GameResult Result = GameResult.InProgress;
 
     public GameState(GameState other) : this()
     {
@@ -51,11 +36,6 @@ public class GameState()
         Player2Pawns = other.Player2Pawns;
         Player1Kings = other.Player1Kings;
         Player2Kings = other.Player2Kings;
-        
-        MoveHistory = other.MoveHistory;
-        MoveHistoryCount = other.MoveHistoryCount;
-        _moveHistoryCapacity = other._moveHistoryCapacity;
-        
         IsPlayer1Turn = other.IsPlayer1Turn;
         Result = other.Result;
     }
@@ -75,51 +55,15 @@ public class GameState()
         Player2Pawns = DefaultPlayer2Pawns;
         Player2Kings = EmptyBoard;
         IsPlayer1Turn = true;
-        
-        MoveHistory = new CheckersMove[DefaultHistoryCapacity];
-        MoveHistoryCount = 0;
-        _moveHistoryCapacity = DefaultHistoryCapacity;
-        
         Result = GameResult.InProgress;
     }
 
     // Bitboard helper functions.
     public static int GetBitIndex(int x, int y) => y * BoardSize + x;
-    public static ulong SetBit(ulong board, int index) => board | (1UL << index);
-    public static ulong ClearBit(ulong board, int index) => board & ~(1UL << index);
-    public static int GetX(int index) => index % BoardSize;
-    public static int GetY(int index) => index / BoardSize;
-    public static (int x, int y) GetXY(int index) => (GetX(index), GetY(index));
+    public static void SetBit(ref ulong board, int index) => board |= (1UL << index);
+    public static void ClearBit(ref ulong board, int index) => board &= ~(1UL << index);
+    public static (int x, int y) GetXy(int index) => (index % BoardSize, index / BoardSize);
     public static bool IsBitSet(ulong board, int index) => (board & (1UL << index)) != 0;
-
-    public void AddHistory(CheckersMove move)
-    {
-        if (MoveHistoryCount >= _moveHistoryCapacity)
-        {
-            var newHistoryCapacity = _moveHistoryCapacity << 1;
-            var largerArray = new CheckersMove[newHistoryCapacity];
-            Array.Copy(MoveHistory, largerArray, _moveHistoryCapacity);
-            _moveHistoryCapacity = newHistoryCapacity; 
-        }
-        MoveHistory[MoveHistoryCount] = move;
-        MoveHistoryCount++;
-    }
-    public void ClearHistory()
-    {
-        MoveHistoryCount = 0;
-        _moveHistoryCapacity = DefaultHistoryCapacity;
-        MoveHistory = new CheckersMove[_moveHistoryCapacity]; 
-    }
-    
-    public Span<CheckersMove> GetHistory()
-    {
-        if (MoveHistoryCount == 0)
-        {
-            return Span<CheckersMove>.Empty;
-        }
-        return new Span<CheckersMove>(MoveHistory, 0, MoveHistoryCount);
-    }
-
     public ulong GetPlayer1Pieces() => Player1Pawns | Player1Kings;
     public ulong GetPlayer2Pieces() => Player2Pawns | Player2Kings;
     public ulong GetAllPieces() => Player1Pawns | Player2Pawns | Player2Kings | Player1Kings;

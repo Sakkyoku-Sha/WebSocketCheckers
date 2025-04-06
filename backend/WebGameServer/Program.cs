@@ -119,12 +119,14 @@ app.MapPost("/TryMakeMove", async (CheckersMoveRequest move) =>
     {
        return Results.BadRequest("No active game with the provided Id");
     }
-    if (!gameStateManager.TryApplyMove(move.GameId.Value, move.FromIndex, move.ToIndex, out var gameState) || gameState == null)
+    
+    var tryApplyResult = gameStateManager.TryApplyMove(move.GameId.Value, move.FromIndex, move.ToIndex, out var gameState);
+    if (tryApplyResult.Success == false || gameState == null)
     {
         return Results.Conflict("Attempted to make an Invalid Move");
     }
     Console.WriteLine($"Move made for game: {move.GameId} from {move.FromIndex} to {move.ToIndex}");
-    var latestMove = gameInfo.GameState.GetHistory()[^1];
+    var latestMove = gameInfo.GetHistory()[^1];
     var message = WebSocketEncoder.Encode(new GameHistoryUpdateMessage([latestMove]));
     await sessionSocketHandler.SendMessageToUsersAsync(gameInfo.Player2?.UserId == null ? [gameInfo.Player1.UserId] : [gameInfo.Player1.UserId, gameInfo.Player2.UserId], message);
     

@@ -42,7 +42,7 @@ namespace WebGameServer.WebSocketEncoding.ToClientMessages
             }
 
             // Ensure gameHistory is never null, use empty array if needed
-            gameHistory = gameinfo.GameState?.GetHistory().ToArray() ?? Array.Empty<CheckersMove>();
+            gameHistory = gameinfo.GetHistory().ToArray();
         }
 
         // Private constructor for FromByteSpan

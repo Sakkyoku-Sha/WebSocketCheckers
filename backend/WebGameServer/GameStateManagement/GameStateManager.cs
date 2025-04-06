@@ -1,19 +1,13 @@
 ﻿using System.Collections.Concurrent;
+using WebGameServer.GameLogic;
 using WebGameServer.GameStateManagement.KeyValueStore;
 using WebGameServer.State;
 
 namespace WebGameServer.GameStateManagement;
 
-public class GameStateManager
+public class GameStateManager(IKeyGameInfoStore gameInfoStore)
 {
-    private readonly IKeyGameInfoStore _gameInfoStore; 
-    private readonly ConcurrentDictionary<Guid, GameInfo> _playerGames;
-    
-    public GameStateManager(IKeyGameInfoStore gameInfoStore)
-    {
-        _gameInfoStore = gameInfoStore; 
-        _playerGames = new ConcurrentDictionary<Guid, GameInfo>();
-    }
+    private readonly ConcurrentDictionary<Guid, GameInfo> _playerGames = new();
 
     public GameInfo CreateNewGame(Guid playerId)
     {
@@ -25,7 +19,7 @@ public class GameStateManager
         
         var newGameInfo = new GameInfo(newGameId, dummyPlayer1, null, newGameState, title, status);
         
-        _gameInfoStore.SetGameInfo(newGameId, newGameInfo);
+        gameInfoStore.SetGameInfo(newGameId, newGameInfo);
         _playerGames[playerId] = newGameInfo; 
         
         return newGameInfo; 
@@ -34,12 +28,12 @@ public class GameStateManager
     {
         lock (ExecuteExitJoinGameLock)
         {
-            _gameInfoStore.RemoveGameInfo(gameId);
+            gameInfoStore.RemoveGameInfo(gameId);
         }
     }
     public bool TryGetGameByGameId(Guid gameId, out GameInfo? gameInfo)
     {
-        return _gameInfoStore.TryGetState(gameId, out gameInfo);
+        return gameInfoStore.TryGetState(gameId, out gameInfo);
     }
     
     //To make joining games Thread Safe
@@ -55,7 +49,7 @@ public class GameStateManager
                 // Player is already in a game
                 return false;
             }
-            if (!_gameInfoStore.TryGetState(requestGameId, out gameInfo) || gameInfo == null)
+            if (!gameInfoStore.TryGetState(requestGameId, out gameInfo) || gameInfo == null)
             {
                 // Game does not exist
                 return false;
@@ -68,7 +62,7 @@ public class GameStateManager
             
             // Game exists and player can join
             _playerGames[requestPlayerId] = gameInfo;
-            _gameInfoStore.SetGameInfo(requestGameId, gameInfo);
+            gameInfoStore.SetGameInfo(requestGameId, gameInfo);
         }
         return true;
     }
@@ -89,7 +83,7 @@ public class GameStateManager
                 }
                 if (gameInfo.Player1 == null && gameInfo.Player2 == null) //No Users are in the game so remove it. 
                 {
-                    _gameInfoStore.RemoveGameInfo(gameInfo.GameId);
+                    gameInfoStore.RemoveGameInfo(gameInfo.GameId);
                 }
             }
         }
@@ -97,19 +91,19 @@ public class GameStateManager
 
     public IEnumerable<GameInfo> ResolveOpenGames()
     {
-        return _gameInfoStore.GamesWhere(x => x.Status == GameStatus.WaitingForPlayers); 
+        return gameInfoStore.GamesWhere(x => x.Status == GameStatus.WaitingForPlayers); 
     }
 
-    public bool TryApplyMove(Guid moveGameId, byte moveFromIndex, byte moveToIndex, out GameInfo? gameInfo)
+    public TryMoveResult TryApplyMove(Guid moveGameId, byte moveFromIndex, byte moveToIndex, out GameInfo? gameInfo)
     {
         gameInfo = null;
-        if (!_gameInfoStore.TryGetState(moveGameId, out gameInfo) || gameInfo == null)
+        if (!gameInfoStore.TryGetState(moveGameId, out gameInfo) || gameInfo == null)
         {
-            return false;
+            return TryMoveResult.Fail;
         }
         
         var gameState = gameInfo.GameState;
-        return GameLogic.GameLogic.TryApplyMove(gameState, moveFromIndex, moveToIndex);
+        return GameLogic.GameLogic.TryApplyMove(ref gameState, moveFromIndex, moveToIndex);
     }
 
     public bool PlayerInGame(Guid requestUserId)

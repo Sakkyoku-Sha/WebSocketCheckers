@@ -1,15 +1,75 @@
-﻿using WebGameServer.State;
+﻿using System.Numerics;
+using WebGameServer.State;
 
 namespace WebGameServer.GameLogic;
+
 public static class GameLogic
 {
     private static bool IsOnBoard(int x, int y) => x >= 0 && x < GameState.BoardSize && y >= 0 && y < GameState.BoardSize;
     private static bool IsDarkSquare(int x, int y) => (x + y) % 2 == 1;
     
-    public static bool TryApplyMove(GameState state, int fromBitIndex, int toBitIndex)
+    public static TryMoveResult TryApplyMove(ref GameState state, int fromBitIndex, int toBitIndex)
     {
-        var (fromX, fromY) = GameState.GetXY(fromBitIndex);
-        var (toX, toY) = GameState.GetXY(toBitIndex);
+        var validationResult = ValidateMove(state, fromBitIndex, toBitIndex);
+        if (validationResult.Valid == false)
+        {
+            return TryMoveResult.Fail;
+        }
+        
+        var playerKings = state.IsPlayer1Turn ? state.Player1Kings : state.Player2Kings;
+        var wasKing = GameState.IsBitSet(playerKings, fromBitIndex);
+        MovePlayerPiece(ref state, fromBitIndex, toBitIndex, wasKing);
+        
+        //Remove opponent pieces if jumped
+        if (validationResult.JumpInfo.HasValue)
+        {
+            RemoveOpponentPieces(ref state, validationResult.JumpInfo.Value.capturedPieces);
+        }
+        
+        //Promotion Logic. 
+        var shouldPromote = ShouldPromote(toBitIndex, state.IsPlayer1Turn) | validationResult.JumpInfo?.jumpedIntoPromotionSquare ?? false; 
+        if (shouldPromote)
+        {
+            PromotePiece(ref state, toBitIndex);
+        }
+        
+        //Flip Turns, jumps must go to the last possible position and turns change. 
+        state.IsPlayer1Turn = !state.IsPlayer1Turn;
+        return new TryMoveResult(true, shouldPromote, validationResult.JumpInfo?.capturedPieces ?? 0ul);
+    }
+
+    private static void PromotePiece(ref GameState state, int toBitIndex)
+    {
+        if (state.IsPlayer1Turn)
+        {
+            GameState.SetBit(ref state.Player1Kings, toBitIndex);
+            GameState.ClearBit(ref state.Player1Pawns, toBitIndex);
+        }
+        else
+        {
+            GameState.SetBit(ref state.Player2Kings, toBitIndex);
+            GameState.ClearBit(ref state.Player2Pawns, toBitIndex);
+        }
+    }
+
+    private static void RemoveOpponentPieces(ref GameState state, ulong capturedPieces)
+    {
+        if (state.IsPlayer1Turn)
+        {
+            state.Player2Kings &= ~capturedPieces; //works since we should never have a captured piece that isn't the opponents piece. 
+            state.Player2Pawns &= ~capturedPieces;
+        }
+        else
+        {
+            state.Player1Kings &= ~capturedPieces;
+            state.Player1Pawns &= ~capturedPieces;
+        }
+    }
+
+    private static MoveValidationResult ValidateMove(GameState state, int fromBitIndex, int toBitIndex)
+    {
+        var (fromX, fromY) = GameState.GetXy(fromBitIndex);
+        var (toX, toY) = GameState.GetXy(toBitIndex);
         
         //Move must be on the board and on a dark square 
         if (
@@ -18,21 +78,21 @@ public static class GameLogic
             !IsDarkSquare(fromX, fromY) || 
             !IsDarkSquare(toX, toY))
         {
-            return false; 
+            return MoveValidationResult.Invalid;
         }
         
         //Can't move to a space with a piece, (unless it's the same square (as cycles jumps are supported)) 
         var allPieces = state.GetAllPieces();
         if (GameState.IsBitSet(allPieces, toBitIndex) && fromBitIndex != toBitIndex)
         {
-            return false; 
+            return MoveValidationResult.Invalid;
         }
         
         //Only Can move the current turn pieces. 
         var playerPieces = state.IsPlayer1Turn ? state.GetPlayer1Pieces() : state.GetPlayer2Pieces();
         if (!GameState.IsBitSet(playerPieces, fromBitIndex))
         {
-            return false;
+            return MoveValidationResult.Invalid;
         }
         
         //Determine if we are working with a king or a pawn 
@@ -43,207 +103,209 @@ public static class GameLogic
         var dx = toX- fromX;
         var dy = toY - fromY;
         
-        //Simple Move Case Valid moves are 
-        //todo redo logic so that we don't call this method for single jumps (the majority of moves) 
-        var possibleJumps = DeterminePossibleJumpEndPoints(state, playerPieces, playerKings, allPieces);
-        if (possibleJumps.Count > 0 && possibleJumps.All(x => x.finalJump != toBitIndex) ||
-            (fromBitIndex == toBitIndex && possibleJumps.Count == 0))
-        {
-            return false; 
-        }
-        //If it's not a jump then it must be a single movement
-        if (possibleJumps.Count == 0 && (Math.Abs(dy) != 1 || Math.Abs(dx) != 1)) 
-        {
-            return false; 
-        }
         //Pawn movement must be forward 
         if (!isKing && (state.IsPlayer1Turn && dy > 0) || !isKing && (!state.IsPlayer1Turn && dy < 0))
         {
-            return false;
+            return MoveValidationResult.Invalid;
         }
         
-        var shouldPromote = ShouldPromote(toBitIndex, state.IsPlayer1Turn); 
-        ulong playerPieceBoard; 
+        Span<StackFrame> results = stackalloc StackFrame[6];
+        Span<StackFrame> work    = stackalloc StackFrame[32];
+        int count = DetermineAllPossibleJumps(state.IsPlayer1Turn, playerPieces, playerKings, allPieces, results, work);
+        if (count == 0 && Math.Abs(dx) == 1 && Math.Abs(dy) == 1)
+        {
+            return new MoveValidationResult(true, null);
+        }
+        
+        //Only valid if there is a path with an end with the request to location.
+        StackFrame jumpPath = default;
+        for (int i = 0; i < count; i++)
+        {
+            if (results[i].CurrentEndOfPath == toBitIndex)
+            {
+                jumpPath = results[i];
+                break;
+            }
+        }
+        if (jumpPath.CapturedPieces == 0ul) //should Only occur in default case as this would be a jump without any captures 
+        {
+            return MoveValidationResult.Invalid;
+        }
+        
+        return new MoveValidationResult(true, (jumpPath.CapturedPieces, jumpPath.IsKing));
+    }
+    private static void MovePlayerPiece(ref GameState state, int fromBitIndex, int toBitIndex, bool wasKing)
+    {
+        ref var playerPieceBoard = ref state.Player1Pawns; 
+        
         if (state.IsPlayer1Turn)
-        {
-            playerPieceBoard = isKing ? state.Player1Kings : state.Player1Pawns;
-        }
+            playerPieceBoard = ref wasKing ? ref state.Player1Kings : ref state.Player1Pawns;
         else
-        {
-            playerPieceBoard = isKing ? state.Player2Kings : state.Player2Pawns;
-        }
-
+            playerPieceBoard = ref wasKing ? ref state.Player2Kings : ref state.Player2Pawns;
+        
         // Clear the bit and set the new bit on the selected board.
-        playerPieceBoard = GameState.ClearBit(playerPieceBoard, fromBitIndex);
-        playerPieceBoard = GameState.SetBit(playerPieceBoard, toBitIndex);
+        GameState.ClearBit(ref playerPieceBoard, fromBitIndex);
+        GameState.SetBit(ref playerPieceBoard, toBitIndex);
+    }
 
-        // Update the original state board after the modifications.
-        if (state.IsPlayer1Turn)
-        {
-            if (isKing)
-                state.Player1Kings = playerPieceBoard;
-            else
-                state.Player1Pawns = playerPieceBoard;
-        }
-        else
-        {
-            if (isKing)
-                state.Player2Kings = playerPieceBoard;
-            else
-                state.Player2Pawns = playerPieceBoard;
-        }
-        
-        var moveToStore = new CheckersMove()
-        {
-            FromIndex = (byte)fromBitIndex, //Valid Indexes will cast fine 
-            ToIndex = (byte)toBitIndex,
-        };
-        //Remove opponent pieces 
-        if (possibleJumps.Count > 0)
-        {
-            var opponentKings = state.IsPlayer1Turn ? state.Player2Kings : state.Player1Kings;
-            var opponentsPawns = state.IsPlayer1Turn ? state.Player2Pawns : state.Player2Kings;
-            
-            ulong capturedPiecesBoard = 0ul;
-            (int finalJump, List<int> jumpedOver, bool becameKing) jumpedIndexes = possibleJumps.Find(x => x.finalJump == toBitIndex);
-            foreach (var jumped in jumpedIndexes.jumpedOver)
-            {
-                opponentKings = GameState.ClearBit(opponentKings, jumped);
-                opponentsPawns = GameState.ClearBit(opponentsPawns, jumped);
-                capturedPiecesBoard = GameState.SetBit(capturedPiecesBoard, jumped); 
-            }
-
-            if (state.IsPlayer1Turn)
-            {
-                state.Player2Kings = opponentKings;
-                state.Player2Pawns = opponentsPawns;
-            }
-            else
-            {
-                state.Player1Kings = opponentKings;
-                state.Player1Pawns = opponentsPawns;
-            }
-
-            moveToStore.CapturedPieces = capturedPiecesBoard;
-            shouldPromote |= jumpedIndexes.becameKing;
-        }
-
-        moveToStore.Promoted = shouldPromote;
-        //Promotion Logic. 
-        if (shouldPromote)
-        {
-            if (state.IsPlayer1Turn)
-            {
-                state.Player1Kings = GameState.SetBit(state.Player1Kings, toBitIndex);
-                state.Player1Pawns = GameState.ClearBit(state.Player1Pawns, toBitIndex);
-            }
-            else
-            {
-                state.Player2Kings = GameState.SetBit(state.Player2Kings, toBitIndex);
-                state.Player2Pawns = GameState.ClearBit(state.Player2Pawns, toBitIndex);
-            }
-        }
-        
-        //Flip Turns, no partial moves are possible. 
-        state.IsPlayer1Turn = !state.IsPlayer1Turn;
-        state.AddHistory(moveToStore);
-        return true; 
+    private struct StackFrame(int currentEndOfPath, bool isKing, ulong capturedPieces, int initialPosition)
+    {
+        public int CurrentEndOfPath = currentEndOfPath;
+        public bool IsKing = isKing;
+        public ulong CapturedPieces = capturedPieces;
+        public int InitialPosition = initialPosition; 
     }
     
-    private static List<(int finalJump, List<int> jumpedOver, bool king)> DeterminePossibleJumpEndPoints(GameState state, ulong playerPieces, ulong playerKings, ulong allPieces)
+    private static int DetermineAllPossibleJumps(
+        bool isP1,
+        ulong pPieces,
+        ulong pKings,
+        ulong allPieces,
+        Span<StackFrame> results,  // e.g. stackalloc StackFrame[6]
+        Span<StackFrame> work      // e.g. stackalloc StackFrame[32]
+    )
     {
-        var opponentPieces = playerPieces ^ allPieces; //xor works due to playerPieces being in allPieces. 
-        var possibleJumps = new List<(int finalJump, List<int> jumpedOver, bool king)>();
-        
-        //todo This could be made more optimized with move history later (just check the most recent moves) 
-        for (var i = 0; i < 64; i++)
+        int resCount = 0, workCount = 0;
+        ulong opp = pPieces ^ allPieces;
+
+        // Seed the work‑stack
+        while (pPieces != 0)
         {
-            if (!GameState.IsBitSet(playerPieces, i)) continue;
-            
-            var isKing = GameState.IsBitSet(playerKings, i);
-            var possiblePositions = DeterminePossibleDirectionsToJump(i, allPieces, opponentPieces, state.IsPlayer1Turn, isKing, new List<int>(6));
-            possibleJumps.AddRange(possiblePositions);
+            int i = BitOperations.TrailingZeroCount(pPieces);
+            bool king = ((pKings >> i) & 1) != 0;
+            work[workCount].CurrentEndOfPath = i;
+            work[workCount].IsKing = king;
+            work[workCount].CapturedPieces = 0ul;
+            work[workCount].InitialPosition = i;
+            workCount++;
+            pPieces &= pPieces - 1;
         }
-        
-        return possibleJumps;
-    }
-    
-    private const int ForwardLeft = -9;
-    private const int JumpForwardLeft = ForwardLeft + ForwardLeft;
-    
-    private const int ForwardRight = -7;
-    private const int JumpForwardRight = ForwardRight + ForwardRight;
-    
-    private const int BackLeft = +7;
-    private const int JumpBackLeft = BackLeft + BackLeft;
-    
-    private const int BackRight = +9;
-    private const int JumpBackRight = BackRight + BackRight;
 
-    private static readonly (int jumpOver, int jumpTo, Func<bool, bool, bool, bool, bool> canJumpFunc)[] DirectionChecks =
-    [
-        (ForwardLeft, JumpForwardLeft, (_, canJumpLeft, canJumpUp, _) => canJumpUp && canJumpLeft),
-        (ForwardRight, JumpForwardRight, (canJumpRight, _, canJumpUp, _) => canJumpUp && canJumpRight),
-        (BackLeft, JumpBackLeft, (_, canJumpLeft, _, canJumpDown) => canJumpDown && canJumpLeft),
-        (BackRight, JumpBackRight, (canJumpRight, _, _, canJumpDown) => canJumpDown && canJumpRight)
-    ];  
-    
-    //todo rewrite this to use a stack frame and itterative instead of the current solution. 
-    private static IEnumerable<(int, List<int> jumpedOver, bool isKing)> DeterminePossibleDirectionsToJump(int index, ulong allPieces, ulong opponentPieces,
-        bool player1Turn, bool isKing, List<int> jumpedOver)
-    {
-        var canJumpRight = index % 8 < 6;
-        var canJumpLeft = index % 8 > 1;
-        var canJumpDown = index < 48 && (isKing || !player1Turn); 
-        var canJumpUp = index > 15 && (isKing || player1Turn);
-
-        foreach (var direction in DirectionChecks)
+        // Process
+        while (workCount > 0)
         {
-            var jumpOver = index + direction.jumpOver;
-            var jumpTo = index + direction.jumpTo;
-            
-            if (!direction.canJumpFunc(canJumpRight, canJumpLeft, canJumpUp, canJumpDown))
+            var f = work[--workCount];
+            int i = f.CurrentEndOfPath;
+            int file = i & 7, rank = i >> 3;
+            bool up    = rank > 1  && (f.IsKing || isP1);
+            bool down  = rank < 6  && (f.IsKing || !isP1);
+            bool left  = file > 1;
+            bool right = file < 6;
+
+            bool didJump = false;
+
+            // ——— Direction 1: Up‑Left ———
+            if (up && left)
             {
-                continue;
-            }
-            if (!GameState.IsBitSet(opponentPieces, jumpOver) ||
-                GameState.IsBitSet(allPieces, jumpTo))
-            {
-                continue;
+                int over = i - 9, to = i - 18;
+                if (((f.CapturedPieces >> over) & 1) == 0
+                 && (((opp >> over) & 1) != 0)
+                 && (to == f.InitialPosition || ((allPieces >> to) & 1) == 0))
+                {
+                    ulong nextCap = f.CapturedPieces | (1UL << over);
+                    bool nextKing = f.IsKing || ShouldPromote(to, isP1);
+                    
+                    work[workCount].CurrentEndOfPath = to;
+                    work[workCount].IsKing = nextKing;
+                    work[workCount].CapturedPieces = nextCap;
+                    work[workCount].InitialPosition = f.InitialPosition;
+                    workCount++;
+                    
+                    didJump = true;
+                }
             }
 
-            //Using Backtracking to avoid cycles, e.g jumping to a position in a circle (which is possible!) 
-            opponentPieces = GameState.ClearBit(opponentPieces, jumpOver);
-            allPieces = GameState.ClearBit(allPieces, jumpOver);
-            allPieces = GameState.ClearBit(allPieces, index);
-            
-            jumpedOver.Add(jumpOver);
-            
-            //Recurse
-            isKing = isKing || ShouldPromote(jumpTo, player1Turn);
-            var jumps = DeterminePossibleDirectionsToJump(jumpTo, allPieces, opponentPieces, player1Turn, isKing, jumpedOver);
-            var jumped = false;
-            
-            foreach (var jump in jumps)
+            // ——— Direction 2: Up‑Right ———
+            if (up && right)
             {
-                jumped = true;
-                yield return jump;
+                int over = i - 7, to = i - 14;
+                if (((f.CapturedPieces >> over) & 1) == 0
+                 && (((opp >> over) & 1) != 0)
+                 && (to == f.InitialPosition || ((allPieces >> to) & 1) == 0))
+                {
+                    ulong nextCap = f.CapturedPieces | (1UL << over);
+                    bool nextKing = f.IsKing || ShouldPromote(to, isP1);
+                    
+                    work[workCount].CurrentEndOfPath = to;
+                    work[workCount].IsKing = nextKing;
+                    work[workCount].CapturedPieces = nextCap;
+                    work[workCount].InitialPosition = f.InitialPosition;
+                    workCount++;
+                    
+                    didJump = true;
+                }
             }
-            if (jumped == false) //We jumped and no other jumps are possible
+
+            // ——— Direction 3: Down‑Left ———
+            if (down && left)
             {
-                yield return (jumpTo, [..jumpedOver], isKing);
+                int over = i + 7, to = i + 14;
+                if (((f.CapturedPieces >> over) & 1) == 0
+                 && (((opp >> over) & 1) != 0)
+                 && (to == f.InitialPosition || ((allPieces >> to) & 1) == 0))
+                {
+                    ulong nextCap = f.CapturedPieces | (1UL << over);
+                    bool nextKing = f.IsKing || ShouldPromote(to, isP1);
+                    
+                    work[workCount].CurrentEndOfPath = to;
+                    work[workCount].IsKing = nextKing;
+                    work[workCount].CapturedPieces = nextCap;
+                    work[workCount].InitialPosition = f.InitialPosition;
+                    workCount++;
+                    
+                    didJump = true;
+                }
             }
-            
-            //Undo Jump in this closure 
-            jumpedOver.RemoveAt(jumpedOver.Count - 1);
-            opponentPieces = GameState.SetBit(opponentPieces, jumpOver);
-            allPieces = GameState.SetBit(allPieces, jumpOver);
-            allPieces = GameState.SetBit(allPieces, index);
+
+            // ——— Direction 4: Down‑Right ———
+            if (down && right)
+            {
+                int over = i + 9, to = i + 18;
+                if (((f.CapturedPieces >> over) & 1) == 0
+                 && (((opp >> over) & 1) != 0)
+                 && (to == f.InitialPosition || ((allPieces >> to) & 1) == 0))
+                {
+                    ulong nextCap = f.CapturedPieces | (1UL << over);
+                    bool nextKing = f.IsKing || ShouldPromote(to, isP1);
+                   
+                    work[workCount].CurrentEndOfPath = to;
+                    work[workCount].IsKing = nextKing;
+                    work[workCount].CapturedPieces = nextCap;
+                    work[workCount].InitialPosition = f.InitialPosition;
+                    workCount++;
+                    
+                    didJump = true;
+                }
+            }
+
+            // If we did no jumps but have captured at least one, record the result
+            if (!didJump && f.CapturedPieces != 0UL)
+            {
+                results[resCount++] = f;
+            }
         }
+
+        return resCount;
     }
     
     private static bool ShouldPromote(int jumpIndex, bool player1Turn)
     {
         return player1Turn ? jumpIndex < 8 : jumpIndex > 55;
     }
+}
+
+public readonly struct TryMoveResult(bool success, bool promoted, ulong capturedPieces)
+{
+    public readonly bool Success = success; 
+    public readonly bool Promoted = promoted;
+    public readonly ulong CapturedPieces = capturedPieces;
+
+    public static readonly TryMoveResult Fail = new(false, false, 0);
+}
+public readonly struct MoveValidationResult(bool valid, (ulong capturedPieces, bool jumpedIntoPromotionSquare)? jumpInfo)
+{
+    public readonly bool Valid  = valid;
+    public readonly (ulong capturedPieces, bool jumpedIntoPromotionSquare)? JumpInfo = jumpInfo;
+    
+    public static readonly MoveValidationResult Invalid = new(false, null); 
 }
