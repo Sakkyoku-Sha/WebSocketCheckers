@@ -109,6 +109,7 @@ public static class GameLogic
             return MoveValidationResult.Invalid;
         }
         
+        //Randomly fined tuned values to work "in average cases" 
         Span<StackFrame> results = stackalloc StackFrame[6];
         Span<StackFrame> work    = stackalloc StackFrame[32];
         int count = DetermineAllPossibleJumps(state.IsPlayer1Turn, playerPieces, playerKings, allPieces, results, work);
@@ -294,7 +295,7 @@ public static class GameLogic
     }
 }
 
-public readonly struct TryMoveResult(bool success, bool promoted, ulong capturedPieces)
+public struct TryMoveResult(bool success, bool promoted, ulong capturedPieces)
 {
     public readonly bool Success = success; 
     public readonly bool Promoted = promoted;

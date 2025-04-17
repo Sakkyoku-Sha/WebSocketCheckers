@@ -57,7 +57,7 @@ public struct GameState()
         IsPlayer1Turn = true;
         Result = GameResult.InProgress;
     }
-
+    
     // Bitboard helper functions.
     public static int GetBitIndex(int x, int y) => y * BoardSize + x;
     public static void SetBit(ref ulong board, int index) => board |= (1UL << index);

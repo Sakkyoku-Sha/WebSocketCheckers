@@ -1,5 +1,5 @@
 ﻿CREATE TABLE IF NOT EXISTS GAME_INFO (
-   game_id UUID PRIMARY KEY,
+   game_id INTEGER PRIMARY KEY,
    game_info_json JSONB,
    created_at TIMESTAMP DEFAULT now()
 );

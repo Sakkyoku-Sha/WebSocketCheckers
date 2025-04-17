@@ -5,29 +5,39 @@ namespace WebGameServer.State;
 
 public enum GameStatus : byte
 {
+    NoPlayers,
     WaitingForPlayers,
     InProgress,
-    Finished
+    Finished,
+    Abandoned
 }
 
-//Required for Efficient Byte Serialization
+//Required for Efficient Byte Serialization DO NOT DELETE 
 [StructLayout(LayoutKind.Sequential)]
-public record struct CheckersMove(byte FromIndex, byte ToIndex, bool Promoted, ulong CapturedPieces);
-
-
-public class GameInfo(Guid gameId, PlayerInfo? player1, PlayerInfo? player2, GameState gameState, string gameName, GameStatus status)
+public readonly record struct CheckersMove(byte FromIndex, byte ToIndex, bool Promoted, ulong CapturedPieces)
 {
-    private const int DefaultHistoryCapacity = 64; 
-    
-    public Guid GameId { get; set; } = gameId;
-    public GameStatus Status { get; set; } = status;
-    public string GameName { get; set; } = gameName;
-    public PlayerInfo? Player1 { get; set; } = player1;
-    public PlayerInfo? Player2 { get; set; } = player2;
-    public GameState GameState { get; set; } = gameState;
-    public CheckersMove[] MoveHistory  { get; set; } = new CheckersMove[DefaultHistoryCapacity];
-    public int MoveHistoryCount { get; set; }  = 0;  
+    public const int ByteSize = 11; 
+}
+
+public class GameInfo
+{
+    private const int DefaultHistoryCapacity = 64;
+
+    public int GameId = -1; 
+    public GameStatus Status = GameStatus.WaitingForPlayers;
+    public string GameName = "Checkers Game";
+    public PlayerInfo? Player1;
+    public PlayerInfo? Player2;
+    public GameState GameState;
+    public CheckersMove[] MoveHistory = new CheckersMove[DefaultHistoryCapacity];
+    public int MoveHistoryCount;  
     private int _moveHistoryCapacity = DefaultHistoryCapacity;
+
+    public GameInfo(int gameId)
+    {
+        gameId = gameId < 0 ? throw new ArgumentOutOfRangeException(nameof(gameId)) : gameId;
+    }
+
     public void AddHistory(CheckersMove move)
     {
         if (MoveHistoryCount >= _moveHistoryCapacity)
@@ -53,5 +63,14 @@ public class GameInfo(Guid gameId, PlayerInfo? player1, PlayerInfo? player2, Gam
             return Span<CheckersMove>.Empty;
         }
         return new Span<CheckersMove>(MoveHistory, 0, MoveHistoryCount);
+    }
+
+    public void Reset()
+    {
+        Player1 = null;
+        Player2 = null;
+        Status = GameStatus.WaitingForPlayers;
+        GameState.SetUpDefaultBoard();
+        MoveHistoryCount = 0;
     }
 }
