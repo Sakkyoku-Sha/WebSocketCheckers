@@ -94,7 +94,7 @@ namespace WebGameServer.WebSocketEncoding
             var slice = Buffer.Slice(Offset, T.ByteSize);
             Offset += T.ByteSize;
             
-            return MemoryMarshal.Cast<byte, T>(slice)[0];
+            return MemoryMarshal.Read<T>(slice);
         }
     }
 }
@@ -103,7 +103,7 @@ public interface IFixedByteSize
     public static abstract int ByteSize { get; }
 }
 
-[StructLayout(LayoutKind.Sequential)]
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct TryMakeMoveRequest(Guid playerId, int gameId, byte fromXy, byte toXy) : IFixedByteSize
 {
     public readonly Guid PlayerId = playerId;
@@ -112,7 +112,7 @@ public readonly struct TryMakeMoveRequest(Guid playerId, int gameId, byte fromXy
     public readonly byte ToXy = toXy;
     public static int ByteSize => 16 + sizeof(int) + sizeof(byte) + sizeof(byte);
 }
-[StructLayout(LayoutKind.Sequential)]
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct TryJoinGameRequest(Guid playerId, int gameId) : IFixedByteSize
 {
     public readonly Guid PlayerId = playerId;

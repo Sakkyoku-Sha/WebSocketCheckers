@@ -21,6 +21,7 @@ public class UserSession
     public Guid SessionId;
     public bool Identified;
     public int GameId;
+    public bool IsInGame => GameId >= 0;
     public CancellationToken TimeOutToken;
     public WebSocketState State => _socket.State;
 

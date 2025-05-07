@@ -43,7 +43,7 @@ public ref struct ByteWriter
     
     public void WriteStringUTF16LE(ref readonly string value)
     { 
-       //This code only works in .Net 5+ as it depends on the string values natively being encoded as UTF16LE 
+       //This approach only works in .Net 5+ as it depends on the string values natively being encoded as UTF16LE 
        //This is done to avoid the cost of creating a new string each time in order to generate a UTF8 encoding.
        //The string lengths here aren't long enough to make this a problem. 
        var stringSpan = MemoryMarshal.AsBytes(value.AsSpan());

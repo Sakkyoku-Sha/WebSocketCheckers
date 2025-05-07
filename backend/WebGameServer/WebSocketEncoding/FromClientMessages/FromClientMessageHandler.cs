@@ -10,74 +10,87 @@ public static class FromClientMessageHandler
     {
         if (session.PlayerId == null)
         {
-            SessionSocketHandler.IdentifyPlayer(session, message.PlayerId);
-            if (session.GameId > 0) //Was in a game and reconnected 
+            SessionSocketHandler.SetPlayerSession(session, message.PlayerId);
+            if (session.IsInGame) //Was in a game and reconnected 
             {
                 await LocalGameSpace.LockExecuteState(session.GameId, async gameInfo =>
                 {
-                    await ToClientEncode.WriteGameInfoAsync([session], gameInfo); 
+                    await WriteToClient.WriteGameInfoAsync([session], gameInfo); 
                 });
             }
         }
     }
     public static async Task OnTryMakeMoveRequest(TryMakeMoveRequest request)
     {
-        await LocalGameSpace.LockExecuteState<Task>(request.GameId, async gameInfo =>
-        {
-            //Must be a player registered to the game 
-            var player1 = gameInfo.Player1;
-            var player2 = gameInfo.Player2;
-
-            //Only make moves on board with players 
-            if ( player1.HasValue == false ||
-                 player2.HasValue == false ||
-                 (player1.Value.PlayerId.Equals(request.PlayerId) == false &&
-                  player2.Value.PlayerId.Equals(request.PlayerId) == false))
-            {
-                return;
-            }
-            
-            var result = GameLogic.GameLogic.TryApplyMove(ref gameInfo.GameState, request.FromXy, request.ToXy);
-            var playerSockets = SessionSocketHandler.GetSessionsForPlayers([player1.Value.PlayerId, player2.Value.PlayerId]);
-            
-            await ToClientEncode.WriteNewMoveAsync(playerSockets, new CheckersMove()
-            {
-                CapturedPieces = result.CapturedPieces,
-                Promoted = result.Promoted,
-                FromIndex = request.FromXy,
-                ToIndex = request.ToXy
-            });
-        });
+        await LocalGameSpace.TryMakeMove(request.GameId, request.FromXy, request.ToXy, OnSuccessfulMove);
+    }
+    private static async Task OnSuccessfulMove(GameInfo gameInfo, CheckersMove move)
+    {
+        var playerIds = gameInfo.GetNonNullUsers().Select(x => x.PlayerId).ToArray();
+        var sessionIds = SessionSocketHandler.GetSessionsForPlayers(playerIds);
+        
+        await WriteToClient.WriteNewMoveAsync(sessionIds, move);
     }
 
     public static async Task OnTryJoinGameRequest(UserSession session, TryJoinGameRequest request)
     {
-        var result = await LocalGameSpace.TrySetPlayerInfo(request.GameId, request.PlayerId, "");
-        if (result.Success)
+        if (session.IsInGame) { return; }
+        
+        await LocalGameSpace.TrySetPlayerInfo(request.GameId, request.PlayerId, "",
+            OnSuccessfullyJoinedGame(session), 
+            OnFailedToJoinGame(session));
+    }
+    
+    private static Func<GameInfo, PlayerInfo?, Task> OnSuccessfullyJoinedGame(UserSession session)
+    {
+        return async (gameInfo, opponentInfo) =>
         {
-            _ = ToClientEncode.WriteTryJoinGameResult(session, true);
+            session.GameId = gameInfo.GameId;
+            await WriteToClient.WriteTryJoinGameResult(session, true, gameInfo);
 
-            if (result.OpponentInfo != null)
+            if (opponentInfo.HasValue)
             {
-                var opponentSocket = SessionSocketHandler.GetSessionForUserId(result.OpponentInfo.Value);
-                _ = ToClientEncode.WriteOtherPlayerJoinedAsync([opponentSocket], new PlayerInfo(request.PlayerId, "Opponent"));
+                var opponentSocket = SessionSocketHandler.GetSessionForUserId(opponentInfo.Value);
+                _ = WriteToClient.WriteOtherPlayerJoinedAsync([opponentSocket], opponentInfo.Value);
             }
-        }
-        else
+        };
+    }
+    private static Action OnFailedToJoinGame(UserSession session)
+    {
+        return () =>
         {
-            _ = ToClientEncode.WriteTryJoinGameResult(session, false);
-        }
+            _ = WriteToClient.WriteTryJoinGameResult(session, false, null);
+        };
     }
 
     public static async Task OnTryCreateGameRequest(UserSession session, TryCreateGameRequest request)
     {
-        //Already in a game 
-        if (session.GameId > 0)
+        if (session.IsInGame)
         {
             return; 
         }
         
         var result = await LocalGameSpace.TryCreateNewGame(request.PlayerId);
-        await ToClientEncode.WriteTryGameCreateResult(session, result.GameId);
+        session.GameId = result.GameId; 
+        
+        await WriteToClient.WriteTryGameCreateResult(session, result.GameId);
+    }
+
+
+    private static DateTime _lastCacheUpdate;
+    private const int UpdateTimeFrameSeconds = 5;
+    private static byte[] _lastWrittenBytes = []; 
+    public static async Task OnGetActiveGamesRequest(UserSession sourceSession)
+    {
+        if (DateTime.UtcNow - _lastCacheUpdate > TimeSpan.FromSeconds(UpdateTimeFrameSeconds))
+        {
+            var activeGameIds = LocalGameSpace.GetActiveGame(); 
+            _lastWrittenBytes = await WriteToClient.WriteActiveGames(sourceSession, activeGameIds);
+            _lastCacheUpdate = DateTime.UtcNow;
+        }
+        else
+        {
+            await sourceSession.SocketWriter.SendAsync(_lastWrittenBytes);
+        }
     }
 }

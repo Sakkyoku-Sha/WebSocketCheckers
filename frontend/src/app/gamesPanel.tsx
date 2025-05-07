@@ -1,88 +1,62 @@
 "use client";
-import React from 'react';
-import { fetchCreateGame, fetchJoinGame } from './Fetch/Fetch';
-import { gql, useQuery } from '@apollo/client';
+import React, {useEffect, useState} from 'react';
+import Subscriptions from "@/app/Events/Events";
+import {ActiveGamesMessage, GameMetaData} from "@/app/WebSocket/Decoding";
 
-const openGamesQuery = 
-gql`
-    query OpenGames{
-        openGames{
-            gameId,
-            gameName,
-            player1{
-                userId
-                playerName
-            }
-            player2{
-                userId
-                playerName
-            }
-        }
-    }
-`; 
-
-interface GamePanelProps {
-    userIdRef : React.RefObject<string | null>;
-    gameIdRef : React.RefObject<string | null>;
-}
-
-export default function GamesPanel(props : GamePanelProps){
-
-    const createGame = () => {
+export default function GamesPanel(props : {
+    onCreateGameClick : () => void;
+    refreshClicked : () => void;
+    onGameClicked : (gameId : number) => void;
+}){
+    
+    const [activeGames, setActiveGames] = useState<GameMetaData[]>();
+    
+    const onUpdateActiveGames = (activeGamesMessage: ActiveGamesMessage) => {
+        setActiveGames(activeGamesMessage.activeGames);
+    };
+    
+    useEffect(() => {
         
-        if(props.userIdRef.current === null) {
-            console.error("User ID is null, cannot create game.");
-            return;
-        }
-
-        const newGameId = fetchCreateGame(props.userIdRef.current as string);
-        if(newGameId === "-1") {
-            console.error("Failed to create game");
-            return;
-        }
-        
-        props.gameIdRef.current = newGameId;
-        console.log("Game created with ID:", newGameId);
+      Subscriptions.activeGamesMessageEvent.subscribe(onUpdateActiveGames);
+      return () => {
+          Subscriptions.activeGamesMessageEvent.unsubscribe(onUpdateActiveGames);
+      }
+      
+    }, [])
+    
+    const createGame = () => { 
+        props.onCreateGameClick();
     }
 
-    const joinGame = (gameToJoinId : string) => {
-        if(gameToJoinId === null) {
-            console.error("Game ID is null, cannot join game.");
-            return;
-        }
-        if(props.userIdRef.current === null) {
-            console.error("User ID is null, cannot join game.");
-            return;
-        }
-        fetchJoinGame(gameToJoinId, props.userIdRef.current as string);
-    }
-
-
-    const {loading ,error, data} = useQuery(openGamesQuery, {
-        fetchPolicy: 'network-only',
-        onCompleted: (data) => {
-            const openGames = data.openGames;
-            console.log("Open games:", openGames);
-        },
-        onError: (error) => {
-            console.error("Error fetching open games:", error);
-        },
+    const toDisplay = activeGames?.map((game: GameMetaData) => {
+        return (
+            <div key={game.gameId} className="game-card" onClick={() => props.onGameClicked(game.gameId)}>
+                <div className="game-id">Game ID: {game.gameId}</div>
+                <div className="players">
+                    <div className="player">
+                        <span className="label">Player 1:</span> {game.player1Name}
+                    </div>
+                    <div className="player">
+                        <span className="label">Player 2:</span> {game.player2Name}
+                    </div>
+                </div>
+            </div>
+        );
     });
-
-    const matchestoRender = data?.openGames.map((game : { gameId: string, gameName: string, player1: { userId: string, playerName: string }, player2: { userId: string, playerName: string } }) => {
-        
-        const gameId = game.gameId;
-        const gameName = game.gameName;
-
-        return <div key={gameId} className="game-item" onClick={() => joinGame(gameId)}>
-            {gameName}
-        </div>
-    })
 
     return (
         <div className="games-panel">
-            <button className="create-game-button" onClick={createGame}>Create Game</button>
-            {matchestoRender}
+            <div className="games-panel-header">
+                <button className="create-game-button" onClick={createGame}>
+                    + Create Game
+                </button>
+                <button className="refresh-button" onClick={props.refreshClicked}>
+                    ⟳ Get Active Games
+                </button>
+            </div>
+            <div className="games-list">
+                {toDisplay}
+            </div>
         </div>
     );
 }

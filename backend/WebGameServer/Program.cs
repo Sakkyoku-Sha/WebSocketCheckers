@@ -32,6 +32,7 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 app.UseCors(myAllowSpecificOrigins);
 
+app.UseWebSockets();
 app.Map("/ws", async context =>
 {
     if (context.WebSockets.IsWebSocketRequest)

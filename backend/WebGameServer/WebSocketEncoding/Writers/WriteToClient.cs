@@ -1,7 +1,7 @@
 ﻿using System.Buffers;
 using System.Diagnostics;
-using System.Net.WebSockets;
 using System.Text;
+using WebGameServer.GameStateManagement.GameStateStore;
 using WebGameServer.State;
 
 namespace WebGameServer.WebSocketEncoding.Writers;
@@ -12,6 +12,9 @@ public enum ToClientMessageType : ushort
     PlayerJoined = 1,
     NewMoveMessage = 2, 
     GameInfoMessage = 3,
+    TryJoinGameResultMessage = 4,
+    CreateGameResultMessage = 5,
+    ActiveGamesMessage = 6,
 }
 
 /*
@@ -51,7 +54,7 @@ public enum ToClientMessageType : ushort
  *
  *  I prefer this micro-optimization for my personal project over the refactoring.
  */
-public static class ToClientEncode
+public static class WriteToClient
 {   
     private const int GuidByteLength = 16;
     
@@ -81,9 +84,9 @@ public static class ToClientEncode
     private const int GameHistoryLengthEncodingBytes = 2;
     public static async Task WriteGameInfoAsync(UserSession[] sessions, GameInfo gameInfo)
     {
-        var gameNameEncodedLength = Encoding.Unicode.GetByteCount(gameInfo.GameName);
-        var player1NameEncodedLength = Encoding.Unicode.GetByteCount(gameInfo.Player1?.PlayerName ?? string.Empty);
-        var player2NameEncodedLength = Encoding.Unicode.GetByteCount(gameInfo.Player2?.PlayerName ?? string.Empty);
+        var gameNameEncodedLength = GetEncodingLength(gameInfo.GameName);
+        var player1NameEncodedLength = GetNameEncodingLength(gameInfo.Player1);
+        var player2NameEncodedLength = GetNameEncodingLength(gameInfo.Player2);
         
         Debug.Assert(gameNameEncodedLength <= byte.MaxValue);
         Debug.Assert(player1NameEncodedLength <= byte.MaxValue);
@@ -103,27 +106,8 @@ public static class ToClientEncode
         {
             var byteWriter = new ByteWriter(messageBuffer);
             
-            WriteMessagePrefix(byteWriter, GameInfoMessageVersion, ToClientMessageType.GameInfoMessage);
-            
-            byteWriter.WriteInt(gameInfo.GameId);
-            byteWriter.WriteByte((byte)gameInfo.Status);
-            byteWriter.WriteByte((byte)gameNameEncodedLength);
-            byteWriter.WriteStringUTF16LE(ref gameInfo.GameName);
-
-            var player1Guid = gameInfo.Player1?.PlayerId ?? Guid.Empty;
-            var player1Name = gameInfo.Player1?.PlayerName ?? string.Empty;
-            byteWriter.WriteGuid(ref player1Guid);
-            byteWriter.WriteByte((byte)player1NameEncodedLength);
-            byteWriter.WriteStringUTF16LE(ref player1Name);
-
-            var player2Guid = gameInfo.Player2?.PlayerId ?? Guid.Empty;
-            var player2Name = gameInfo.Player2?.PlayerName ?? string.Empty;
-            byteWriter.WriteGuid(ref player2Guid);
-            byteWriter.WriteByte((byte)player2NameEncodedLength);
-            byteWriter.WriteStringUTF16LE(ref player2Name);
-
-            byteWriter.WriteUShort((ushort)gameInfo.MoveHistoryCount);
-            byteWriter.WriteCheckersMoves(gameInfo.MoveHistory, gameInfo.MoveHistoryCount);
+            WriteMessagePrefix(ref byteWriter, GameInfoMessageVersion, ToClientMessageType.GameInfoMessage);
+            WriteGameInfo(ref byteWriter, gameInfo);
             
             var arrayBuffer = new ArraySegment<byte>(messageBuffer, 0, byteWriter.BytesWritten);
             for (var i = 0; i < sessions.Length; i++)
@@ -131,7 +115,7 @@ public static class ToClientEncode
                 writingTasks[i] = sessions[i].SocketWriter.SendAsync(arrayBuffer);
             }
 
-            await Task.WhenAll(writingTasks);
+            await Task.WhenAll(writingTasks.AsSpan(0, sessions.Length));
         }
         finally
         {
@@ -158,7 +142,7 @@ public static class ToClientEncode
         {
             var byteWriter = new ByteWriter(messageBuffer);
             
-            WriteMessagePrefix(byteWriter, WriteNewMoveMessageVersion, ToClientMessageType.NewMoveMessage);
+            WriteMessagePrefix(ref byteWriter, WriteNewMoveMessageVersion, ToClientMessageType.NewMoveMessage);
             byteWriter.WriteCheckersMove(ref checkersMove);
             
             var arrayBuffer = new ArraySegment<byte>(messageBuffer, 0, byteWriter.BytesWritten);
@@ -166,8 +150,8 @@ public static class ToClientEncode
             {
                 writingTasks[i] = userSessions[i].SocketWriter.SendAsync(arrayBuffer);
             }
-
-            await Task.WhenAll(writingTasks);
+            
+            await Task.WhenAll(writingTasks.AsSpan(0, userSessions.Length));
         }
         finally
         {
@@ -177,10 +161,37 @@ public static class ToClientEncode
     }
     
     private const int MessagePrefixByteSize = 4;
-    private static void WriteMessagePrefix(ByteWriter byteWriter, ushort version, ToClientMessageType messageType)
+    private static void WriteMessagePrefix(ref ByteWriter byteWriter, ushort version, ToClientMessageType messageType)
     {
         byteWriter.WriteUShort(version);
         byteWriter.WriteUShort((ushort)messageType);
+    }
+
+    public static void WriteGameInfo(ref ByteWriter byteWriter, GameInfo gameInfo)
+    {
+        var gameNameEncodedLength = GetEncodingLength(gameInfo.GameName);
+        var player1NameEncodedLength = GetNameEncodingLength(gameInfo.Player1);
+        var player2NameEncodedLength = GetNameEncodingLength(gameInfo.Player2);
+        
+        byteWriter.WriteInt(gameInfo.GameId);
+        byteWriter.WriteByte((byte)gameInfo.Status);
+        byteWriter.WriteByte((byte)gameNameEncodedLength);
+        byteWriter.WriteStringUTF16LE(ref gameInfo.GameName);
+
+        var player1Guid = gameInfo.Player1?.PlayerId ?? Guid.Empty;
+        var player1Name = gameInfo.Player1?.PlayerName ?? string.Empty;
+        byteWriter.WriteGuid(ref player1Guid);
+        byteWriter.WriteByte((byte)player1NameEncodedLength);
+        byteWriter.WriteStringUTF16LE(ref player1Name);
+
+        var player2Guid = gameInfo.Player2?.PlayerId ?? Guid.Empty;
+        var player2Name = gameInfo.Player2?.PlayerName ?? string.Empty;
+        byteWriter.WriteGuid(ref player2Guid);
+        byteWriter.WriteByte((byte)player2NameEncodedLength);
+        byteWriter.WriteStringUTF16LE(ref player2Name);
+
+        byteWriter.WriteUShort((ushort)gameInfo.MoveHistoryCount);
+        byteWriter.WriteCheckersMoves(gameInfo.MoveHistory, gameInfo.MoveHistoryCount);
     }
     
     /// <summary>
@@ -199,7 +210,7 @@ public static class ToClientEncode
         {
             var byteWriter = new ByteWriter(messageBuffer);
            
-            WriteMessagePrefix(byteWriter, SessionStartMessageVersion, ToClientMessageType.SessionStartMessage);
+            WriteMessagePrefix(ref byteWriter, SessionStartMessageVersion, ToClientMessageType.SessionStartMessage);
             byteWriter.WriteGuid(ref sessionId);
             
             var arrayBuffer = new ArraySegment<byte>(messageBuffer, 0, byteWriter.BytesWritten);
@@ -223,7 +234,7 @@ public static class ToClientEncode
     public static async Task WriteOtherPlayerJoinedAsync(UserSession[] userSessions, PlayerInfo playerInfo)
     {
         Debug.Assert(playerInfo.PlayerName != null);
-        var userNameLength = Encoding.Unicode.GetByteCount(playerInfo.PlayerName);
+        var userNameLength = GetNameEncodingLength(playerInfo);
         Debug.Assert(userNameLength <= byte.MaxValue);
         
         var totalByteCount = 
@@ -237,7 +248,7 @@ public static class ToClientEncode
         {
             var byteWriter = new ByteWriter(messageBuffer);
            
-            WriteMessagePrefix(byteWriter, OtherPlayerJoinedMessageVersion, ToClientMessageType.PlayerJoined);
+            WriteMessagePrefix(ref byteWriter, OtherPlayerJoinedMessageVersion, ToClientMessageType.PlayerJoined);
             byteWriter.WriteGuid(ref playerInfo.PlayerId);
             byteWriter.WriteByte((byte)userNameLength);
             byteWriter.WriteStringUTF16LE(ref playerInfo.PlayerName);
@@ -248,7 +259,7 @@ public static class ToClientEncode
                 writingTasks[i] = userSessions[i].SocketWriter.SendAsync(arrayBuffer);
             }
 
-            await Task.WhenAll(writingTasks);
+            await Task.WhenAll(writingTasks.AsSpan(0, userSessions.Length));
         }
         finally
         {
@@ -263,7 +274,7 @@ public static class ToClientEncode
     /// - 1 byte: Join Success bool 
     /// </summary>
     const ushort TryJoinGameResultMessageVersion = 1;
-    public static async Task WriteTryJoinGameResult(UserSession requestingSession, bool tryJoinGameResult)
+    public static async Task WriteTryJoinGameResult(UserSession requestingSession, bool tryJoinGameResult, GameInfo? gameInfo)
     {
         const int totalByteCount = MessagePrefixByteSize + sizeof(byte);
         var messageBuffer = ArrayPool<byte>.Shared.Rent(totalByteCount);
@@ -272,8 +283,12 @@ public static class ToClientEncode
         {
             var byteWriter = new ByteWriter(messageBuffer);
            
-            WriteMessagePrefix(byteWriter, TryJoinGameResultMessageVersion, ToClientMessageType.PlayerJoined);
+            WriteMessagePrefix(ref byteWriter, TryJoinGameResultMessageVersion, ToClientMessageType.TryJoinGameResultMessage);
             byteWriter.WriteByte(tryJoinGameResult ? (byte)1 : (byte)0);
+            if (gameInfo != null)
+            {
+                WriteGameInfo(ref byteWriter, gameInfo);
+            }
             
             var arrayBuffer = new ArraySegment<byte>(messageBuffer, 0, byteWriter.BytesWritten);
             await requestingSession.SocketWriter.SendAsync(arrayBuffer);
@@ -291,14 +306,14 @@ public static class ToClientEncode
     /// </summary>
     public static async Task WriteTryGameCreateResult(UserSession session, int newGameId)
     {
-        const int totalByteCount = MessagePrefixByteSize + sizeof(byte);
+        const int totalByteCount = MessagePrefixByteSize + sizeof(int);
         var messageBuffer = ArrayPool<byte>.Shared.Rent(totalByteCount);
         
         try
         {
             var byteWriter = new ByteWriter(messageBuffer);
            
-            WriteMessagePrefix(byteWriter, TryJoinGameResultMessageVersion, ToClientMessageType.PlayerJoined);
+            WriteMessagePrefix(ref byteWriter, TryJoinGameResultMessageVersion, ToClientMessageType.CreateGameResultMessage);
             byteWriter.WriteInt(newGameId);
             
             var arrayBuffer = new ArraySegment<byte>(messageBuffer, 0, byteWriter.BytesWritten);
@@ -308,5 +323,69 @@ public static class ToClientEncode
         {
             ArrayPool<byte>.Shared.Return(messageBuffer);
         }
+    }
+
+    const int ActiveGameMessageVersion = 1;
+
+    public static async Task<byte[]> WriteActiveGames(UserSession sourceSession, GameMetaData[] activeGames)
+    {
+        var gameMetaDataBytes = CalcByteLengthForGameMetaData(activeGames);
+        var messageTotalByte = MessagePrefixByteSize + gameMetaDataBytes;
+
+        //This function returns the bytes for them to be cached, do not use stack allocated values. 
+        var bytes = new byte[messageTotalByte];
+        var byteWriter = new ByteWriter(bytes);
+
+        WriteMessagePrefix(ref byteWriter, ActiveGameMessageVersion, ToClientMessageType.ActiveGamesMessage);
+
+        foreach (var game in activeGames)
+        {
+            byteWriter.WriteInt(game.GameId);
+            var player1NameLength = GetNameEncodingLength(game.Player1);
+            byteWriter.WriteByte((byte)player1NameLength);
+            if (game.Player1.HasValue)
+            {
+                var player1Name = game.Player1.Value.PlayerName;
+                byteWriter.WriteStringUTF16LE(ref player1Name);
+            }
+            
+            var player2NameLength = GetNameEncodingLength(game.Player2);
+            byteWriter.WriteByte((byte)player2NameLength);
+            if (game.Player2.HasValue)
+            {
+                var player2Name = game.Player2.Value.PlayerName;
+                byteWriter.WriteStringUTF16LE(ref player2Name);
+            }
+        }
+        
+        await sourceSession.SocketWriter.SendAsync(bytes);
+        return bytes;
+    }
+
+    private static int CalcByteLengthForGameMetaData(GameMetaData[] games)
+    {
+        var totalByteLength = 0;
+        
+        foreach (var game in games)
+        {
+            totalByteLength += sizeof(int); //GameId 
+            
+            totalByteLength += StringLengthEncodingBytes; //For Player 1
+            totalByteLength += GetNameEncodingLength(game.Player1);
+
+            totalByteLength += StringLengthEncodingBytes; //For Player 2
+            totalByteLength += GetNameEncodingLength(game.Player2);
+        }
+        
+        return totalByteLength;
+    }
+
+    private static int GetNameEncodingLength(PlayerInfo? player)
+    {
+        return Encoding.Unicode.GetByteCount(player?.PlayerName ?? string.Empty);
+    }
+    private static int GetEncodingLength(string str)
+    {
+        return Encoding.Unicode.GetByteCount(str);
     }
 }

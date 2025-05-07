@@ -426,6 +426,29 @@ public class GameLogicTests
         toBit = GameState.GetBitIndex(1, 6);
         Assert.IsTrue(GameLogic.TryApplyMove(ref state, fromBit, toBit).Success);
     }
+    
+    [Test]
+    public void MultipleJumpChoices()
+    {
+        var boardString = new string[]
+        {
+            ".e.e.e.e", // row 0
+            "e.e.e.e.", // row 1
+            ".e...e.e", // row 2: 
+            "........", // row 3: 
+            ".p......", // row 4
+            "p...e.p.", // row 5
+            ".p.p.p.p", // row 6
+            "p.p.p.p.", // row 7
+        };
+        var state = CreateBoardFromStringArray(boardString);
+        state.IsPlayer1Turn = true;
+        
+        //Promote Enemy Piece 
+        var fromBit = GameState.GetBitIndex(5, 6);
+        var toBit = GameState.GetBitIndex(5, 4);
+        Assert.That(GameLogic.TryApplyMove(ref state, fromBit, toBit).Success, Is.False);
+    }
 
     private void ExecuteAndVerify(GameState state, (byte x, byte y) start,
         ((byte x, byte y) to, bool expectedSuccess)[] moves)

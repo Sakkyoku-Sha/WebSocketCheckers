@@ -18,7 +18,7 @@ public static class SessionSocketHandler
         SessionsMap[sessionId] = session;
         
         //Notify the client of the sessionId
-        await ToClientEncode.WriteSessionStartAsync(session, sessionId);
+        await WriteToClient.WriteSessionStartAsync(session, sessionId);
         
         //!!Spawns a task that will live until the connection is closed. 
         await StartReceiving(session, sessionId);
@@ -104,7 +104,7 @@ public static class SessionSocketHandler
         }
     }
 
-    public static void IdentifyPlayer(UserSession session, Guid messagePlayerId)
+    public static void SetPlayerSession(UserSession session, Guid messagePlayerId)
     {
         session.PlayerId = messagePlayerId;
         session.Identified = true;
@@ -112,7 +112,11 @@ public static class SessionSocketHandler
         //If we already exist, we should remove the old session as it must have been dropped. 
         if (IdentifiedPlayerSessions.TryGetValue(messagePlayerId, out var previousSession))
         {
-            SessionsMap.Remove(previousSession.SessionId, out _);
+            SessionsMap.Remove(previousSession.SessionId, out previousSession);
+            if (previousSession is { IsInGame: true })
+            {
+                session.GameId = previousSession.GameId;
+            }
             IdentifiedPlayerSessions.TryUpdate(messagePlayerId, session, previousSession);
         }
         else

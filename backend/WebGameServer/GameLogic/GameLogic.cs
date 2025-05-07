@@ -120,15 +120,15 @@ public static class GameLogic
         
         //Only valid if there is a path with an end with the request to location.
         StackFrame jumpPath = default;
-        for (int i = 0; i < count; i++)
+        for (var i = 0; i < count; i++)
         {
-            if (results[i].CurrentEndOfPath == toBitIndex)
+            if (results[i].CurrentEndOfPath == toBitIndex && results[i].InitialPosition == fromBitIndex)
             {
                 jumpPath = results[i];
                 break;
             }
         }
-        if (jumpPath.CapturedPieces == 0ul) //should Only occur in default case as this would be a jump without any captures 
+        if (jumpPath.CapturedPieces == 0ul) //should Only occur in made up cases as this would be a jump without any captures 
         {
             return MoveValidationResult.Invalid;
         }

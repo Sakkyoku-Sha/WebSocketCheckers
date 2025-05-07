@@ -1,7 +1,6 @@
 "use client"
 import { MouseEventHandler, RefObject, useState, useRef, useMemo, JSX, Ref, useEffect } from 'react';
 import {CheckersMove} from './page';
-import { fetchTryMakeMove } from './Fetch/Fetch';
 
 enum GameBoardSquare{
     EMPTY = 0,
@@ -20,7 +19,8 @@ export interface GamePiece{
 export interface GameBoardProps {
     moveHistoryRef : RefObject<CheckersMove[]>
     moveNumber : number
-    gameIdRef : RefObject<string | null>
+    gameIdRef : RefObject<number | null>
+    makeMove : (fromIndex : number, toIndex : number) => void;
 }
 
 export default function GameBoard(props: GameBoardProps) {
@@ -39,7 +39,7 @@ export default function GameBoard(props: GameBoardProps) {
         const toIndex = row * 8 + col;
         const fromIndex = selectedSquare.row * 8 + selectedSquare.col;
 
-        fetchTryMakeMove(props.gameIdRef.current, fromIndex, toIndex);
+        props.makeMove(fromIndex, toIndex);
     }
     
     useEffect(() => {
