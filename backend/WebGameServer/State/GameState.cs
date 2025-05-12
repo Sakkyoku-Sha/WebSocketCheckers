@@ -11,7 +11,7 @@ public enum GameResult : byte
 public struct GameState()
 {
     public const int BoardSize = 8; 
-    private const ulong EmptyBoard = 0ul;
+    public const ulong EmptyBoard = 0ul;
     
     private const ulong DefaultPlayer2Pawns =
         (1UL << 1)  | (1UL << 3)  | (1UL << 5)  | (1UL << 7)  |
@@ -28,8 +28,12 @@ public struct GameState()
     public ulong Player2Pawns = EmptyBoard;
     public ulong Player2Kings = EmptyBoard;
     public bool IsPlayer1Turn = true;
+    
     public GameResult Result = GameResult.InProgress;
-
+    
+    //Mainly exists to help the client know if it should show a forced jump.
+    public JumpPath[] CurrentForcedJumps = [];
+    
     public GameState(GameState other) : this()
     {
         Player1Pawns = other.Player1Pawns;
@@ -38,6 +42,7 @@ public struct GameState()
         Player2Kings = other.Player2Kings;
         IsPlayer1Turn = other.IsPlayer1Turn;
         Result = other.Result;
+        CurrentForcedJumps = other.CurrentForcedJumps;
     }
     
     public GameState(bool useDefaultBoard) : this()
@@ -56,6 +61,7 @@ public struct GameState()
         Player2Kings = EmptyBoard;
         IsPlayer1Turn = true;
         Result = GameResult.InProgress;
+        CurrentForcedJumps = [];
     }
     
     // Bitboard helper functions.
@@ -67,4 +73,12 @@ public struct GameState()
     public ulong GetPlayer1Pieces() => Player1Pawns | Player1Kings;
     public ulong GetPlayer2Pieces() => Player2Pawns | Player2Kings;
     public ulong GetAllPieces() => Player1Pawns | Player2Pawns | Player2Kings | Player1Kings;
-}  
+} 
+
+public struct JumpPath(int currentEndOfPath, bool isKing, ulong capturedPieces, int initialPosition)
+{
+    public int CurrentEndOfPath = currentEndOfPath;
+    public bool IsKing = isKing;
+    public ulong CapturedPieces = capturedPieces;
+    public int InitialPosition = initialPosition; 
+}

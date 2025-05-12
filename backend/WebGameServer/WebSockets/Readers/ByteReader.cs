@@ -1,7 +1,7 @@
 ﻿using System.Runtime.InteropServices;
 using WebGameServer.State;
 
-namespace WebGameServer.WebSocketEncoding
+namespace WebGameServer.WebSockets
 {
     public ref struct ByteReader
     {

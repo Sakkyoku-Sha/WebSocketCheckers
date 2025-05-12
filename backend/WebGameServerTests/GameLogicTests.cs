@@ -50,7 +50,7 @@ public class GameLogicTests
         };
         var state = CreateBoardFromStringArray(boardString);
         
-        ExecuteAndVerify(state, (2, 5), new ((byte x, byte y) to, bool expectedSuccess)[] {
+        ExecuteAndVerify(state, (2, 5), [
             ((1, 4), true), // valid move
             ((3, 4), true), // valid move
             
@@ -58,8 +58,8 @@ public class GameLogicTests
             ((4, 3), false), // invalid move
             ((2, 4), false), // invalid move
             ((1, 6), false), // invalid move
-            ((3, 6), false), // invalid move
-        });
+            ((3, 6), false) // invalid move
+        ]);
     }
     
     [Test]
@@ -79,15 +79,15 @@ public class GameLogicTests
         var state = CreateBoardFromStringArray(boardString);
         state.IsPlayer1Turn = false; 
         
-        ExecuteAndVerify(state, (2, 5), new ((byte x, byte y) to, bool expectedSuccess)[] {
+        ExecuteAndVerify(state, (2, 5), [
             ((1, 6), true), // invalid move
             ((3, 6), true), // invalid move
             ((1, 4), false), // valid move
             ((3, 4), false), // valid move`
             ((0, 0), false), // invalid move
             ((4, 3), false), // invalid move
-            ((2, 4), false), // invalid move
-        });
+            ((2, 4), false) // invalid move
+        ]);
     }
     
     [Test]
@@ -106,7 +106,7 @@ public class GameLogicTests
         };
         var state = CreateBoardFromStringArray(boardString);
         
-        ExecuteAndVerify(state, (2, 5), new ((byte x, byte y) to, bool expectedSuccess)[] {
+        ExecuteAndVerify(state, (2, 5), [
             ((1, 4), true), // valid move
             ((3, 4), true), // valid move
             ((1, 6), true), 
@@ -115,7 +115,7 @@ public class GameLogicTests
             ((0, 0), false), 
             ((4, 3), false), 
             ((2, 4), false)
-        });
+        ]);
     }
     
     [Test]
@@ -135,16 +135,16 @@ public class GameLogicTests
         var state = CreateBoardFromStringArray(boardString);
         
         //Jumping Pawns 
-        ExecuteAndVerify(state, (2, 5), new ((byte x, byte y) to, bool expectedSuccess)[] {
+        ExecuteAndVerify(state, (2, 5), [
             ((4, 3), true), // Jump over enemy Pawn 
-            ((0, 3), false), // Jump over own Pawn 
-        });
+            ((0, 3), false) // Jump over own Pawn 
+        ]);
         
         //Jumping Kings 
-        ExecuteAndVerify(state, (3, 2), new ((byte x, byte y) to, bool expectedSuccess)[] {
+        ExecuteAndVerify(state, (3, 2), [
             ((5, 0), true), // Jump over enemy King 
-            ((1, 0), false), // Jump over own King 
-        });
+            ((1, 0), false) // Jump over own King 
+        ]);
     }
     
     [Test]
@@ -164,12 +164,12 @@ public class GameLogicTests
         var state = CreateBoardFromStringArray(boardString);
         
         //Jumping Pawns 
-        ExecuteAndVerify(state, (2, 5), new ((byte x, byte y) to, bool expectedSuccess)[] {
+        ExecuteAndVerify(state, (2, 5), [
             ((4, 3), true), // Jump over enemy Pawn 
             ((0, 4), false), // Jump over own Pawn 
             ((0, 7), true), // Jump back over Pawn 
-            ((4, 7), true), // Jump back over King 
-        });
+            ((4, 7), true) // Jump back over King 
+        ]);
         
         //Jumping Kings 
         ExecuteAndVerify(state, (3, 2), new ((byte x, byte y) to, bool expectedSuccess)[] {
@@ -195,10 +195,10 @@ public class GameLogicTests
         var state = CreateBoardFromStringArray(boardString);
         
         //Jumping Pawns 
-        ExecuteAndVerify(state, (2, 5), new ((byte x, byte y) to, bool expectedSuccess)[] {
+        ExecuteAndVerify(state, (2, 5), [
             ((4, 3), true), // Jump over enemy Pawn 
-            ((1, 4), false), // Must jump over pawn so this is not valid 
-        });
+            ((1, 4), false) // Must jump over pawn so this is not valid 
+        ]);
     }
     
     [Test]
@@ -218,11 +218,11 @@ public class GameLogicTests
         var state = CreateBoardFromStringArray(boardString);
         
         //Jumping Pawns 
-        ExecuteAndVerify(state, (2, 5), new ((byte x, byte y) to, bool expectedSuccess)[] {
+        ExecuteAndVerify(state, (2, 5), [
             ((6, 1),  true), //Jump over both enemy pawns
             ((4, 3), false), //Must Jump to Final Jump Point 
-            ((1, 4), false), //  
-        });
+            ((1, 4), false) //  
+        ]);
     }
     
     [Test]
@@ -274,12 +274,12 @@ public class GameLogicTests
         var state = CreateBoardFromStringArray(boardString);
         
         //Jumping Pawns 
-        ExecuteAndVerify(state, (1, 4), new ((byte x, byte y) to, bool expectedSuccess)[] {
+        ExecuteAndVerify(state, (1, 4), [
             ((2, 3),  false), //Jump over both enemy pawns
             ((3, 2), false), //Must Jump to Final Jump Point 
             ((4, 1), false), //  
-            ((5, 0), true), 
-        });
+            ((5, 0), true)
+        ]);
     }
     [Test]
     public void ComplexJumpTest()
@@ -298,9 +298,9 @@ public class GameLogicTests
         var state = CreateBoardFromStringArray(boardString);
         
         //Jumping Pawns 
-        ExecuteAndVerify(state, (2, 5), new ((byte x, byte y) to, bool expectedSuccess)[] {
-            ((2, 5),  true), //Player is forced to go all the way back to their starting position 
-        });
+        ExecuteAndVerify(state, (2, 5), [
+            ((2, 5),  true) //Player is forced to go all the way back to their starting position 
+        ]);
     }
     
     [Test]
@@ -320,9 +320,9 @@ public class GameLogicTests
         var state = CreateBoardFromStringArray(boardString);
         
         //Jumping Pawns 
-        ExecuteAndVerify(state, (2, 7), new ((byte x, byte y) to, bool expectedSuccess)[] {
-            ((4, 5),  true), //Player is forced to go all the way back to their starting position 
-        });
+        ExecuteAndVerify(state, (2, 7), [
+            ((4, 5),  true) //Player is forced to go all the way back to their starting position 
+        ]);
     }
     
     [Test]

@@ -65,7 +65,11 @@
         return value;
     }
 
-    readStringUTF16LE(lengthInBytes: number): string {
+    readLengthPrefixedStringUTF16LE(): string {
+        
+        //Encoding standard for all strings a prefixed with length
+        const lengthInBytes = this.readUint8();
+        
         if (lengthInBytes < 0) throw new Error("lengthInBytes cannot be negative.");
         if (lengthInBytes === 0) return ""; // Empty string takes 0 bytes
 

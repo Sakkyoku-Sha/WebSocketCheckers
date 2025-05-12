@@ -1,7 +1,8 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
 using WebGameServer.State;
 
-namespace WebGameServer.WebSocketEncoding.Writers;
+namespace WebGameServer.WebSockets.Writers.ByteWriters;
 
 public ref struct ByteWriter
 {
@@ -41,16 +42,22 @@ public ref struct ByteWriter
         _offset += sizeof(int);
     }
     
-    public void WriteStringUTF16LE(ref readonly string value)
+    public void WriteLengthPrefixedStringUTF16LE(ref readonly string value)
     { 
+        var stringSpan = MemoryMarshal.AsBytes(value.AsSpan());
+        
+        //For now all string fields prefix with the length of the string in a single byte followed by the string itself. 
+        Debug.Assert(stringSpan.Length <= byte.MaxValue);
+        WriteByte((byte)stringSpan.Length); 
+       
        //This approach only works in .Net 5+ as it depends on the string values natively being encoded as UTF16LE 
        //This is done to avoid the cost of creating a new string each time in order to generate a UTF8 encoding.
        //The string lengths here aren't long enough to make this a problem. 
-       var stringSpan = MemoryMarshal.AsBytes(value.AsSpan());
+    
        stringSpan.CopyTo(_buffer[_offset..]);
        _offset += stringSpan.Length;
     }
-
+    
     public void WriteCheckersMoves(CheckersMove[] moves, int amountToWrite)
     {
         if (moves.Length <= 0) return;
@@ -81,8 +88,14 @@ public ref struct ByteWriter
 
     public void WriteByte(byte singleByte)
     {
-        MemoryMarshal.Write(_buffer[_offset..], in singleByte);
-        _offset += sizeof(byte); 
+        _buffer[_offset] = singleByte;
+        _offset += 1;
+    }
+    
+    public void WriteBool(bool boolean)
+    {
+        _buffer[_offset] = boolean ? (byte)1 : (byte)0;
+        _offset += 1;
     }
 
     public int BytesWritten => _offset;

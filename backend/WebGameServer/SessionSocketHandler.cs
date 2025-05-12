@@ -1,8 +1,8 @@
 ﻿using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using WebGameServer.State;
-using WebGameServer.WebSocketEncoding.FromClientMessages;
-using WebGameServer.WebSocketEncoding.Writers;
+using WebGameServer.WebSockets.FromClientMessages;
+using WebGameServer.WebSockets.Writers;
 
 namespace WebGameServer;
 
@@ -18,7 +18,7 @@ public static class SessionSocketHandler
         SessionsMap[sessionId] = session;
         
         //Notify the client of the sessionId
-        await WriteToClient.WriteSessionStartAsync(session, sessionId);
+        await WebSocketWriter.WriteSessionStartAsync(session, sessionId);
         
         //!!Spawns a task that will live until the connection is closed. 
         await StartReceiving(session, sessionId);
@@ -46,9 +46,9 @@ public static class SessionSocketHandler
                 var result = await session.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
                 await HandleClientMessage(session, sessionId, result, buffer);
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                // Handle exception (e.g., connection closed)
+                Console.WriteLine(e.StackTrace);
                 await CloseAsync(sessionId);
             }
         }
@@ -65,7 +65,7 @@ public static class SessionSocketHandler
                     
             case WebSocketMessageType.Binary:
             {
-                FromClientDecode.HandleFromClient(buffer, session);
+                WebSocketReader.HandleFromClient(buffer, session);
                 break;
             }
             case WebSocketMessageType.Text:
@@ -92,7 +92,7 @@ public static class SessionSocketHandler
         return sessions;
     }
     
-    public static UserSession GetSessionForUserId(PlayerInfo resultOpponentInfo)
+    public static UserSession GetSessionForUserId(ref PlayerInfo resultOpponentInfo)
     {
         if(IdentifiedPlayerSessions.TryGetValue(resultOpponentInfo.PlayerId, out var session))
         {
@@ -113,10 +113,13 @@ public static class SessionSocketHandler
         if (IdentifiedPlayerSessions.TryGetValue(messagePlayerId, out var previousSession))
         {
             SessionsMap.Remove(previousSession.SessionId, out previousSession);
+            if(previousSession == null){ return;}
+            
             if (previousSession is { IsInGame: true })
             {
                 session.GameId = previousSession.GameId;
             }
+            
             IdentifiedPlayerSessions.TryUpdate(messagePlayerId, session, previousSession);
         }
         else

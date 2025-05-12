@@ -1,6 +1,7 @@
 "use client"
 import { MouseEventHandler, RefObject, useState, useRef, useMemo, JSX, Ref, useEffect } from 'react';
 import {CheckersMove} from './page';
+import {empty} from "@apollo/client";
 
 enum GameBoardSquare{
     EMPTY = 0,
@@ -10,7 +11,7 @@ enum GameBoardSquare{
     PLAYER2KING = 4    
 }
 
-export interface GamePiece{
+export interface SquareToRender {
     row: number
     col: number
     value: GameBoardSquare
@@ -20,11 +21,13 @@ export interface GameBoardProps {
     moveHistoryRef : RefObject<CheckersMove[]>
     moveNumber : number
     gameIdRef : RefObject<number | null>
+    forcedMovesInPosition : RefObject<number[]>
     makeMove : (fromIndex : number, toIndex : number) => void;
 }
 
 export default function GameBoard(props: GameBoardProps) {
 
+    const forcedMoves = props.forcedMovesInPosition.current;
     const moveHistory = props.moveHistoryRef;
     const currRenderedMove = useRef<number>(props.moveNumber);
     
@@ -63,8 +66,8 @@ export default function GameBoard(props: GameBoardProps) {
         }
     };
     
-    const nonEmptySquares : GamePiece[] = useMemo(() => {
-        const squaresList = new Array<GamePiece>();    
+    const nonEmptySquares : SquareToRender[] = useMemo(() => {
+        const squaresList = new Array<SquareToRender>();    
         for (let row = 0; row < 8; row++) {
             for (let col = 0; col < 8; col++) {
                 const squareValue = gameState[row * 8 + col];
@@ -75,16 +78,26 @@ export default function GameBoard(props: GameBoardProps) {
         }
         return squaresList;
     }, [gameState]);
+    
+    
+    const forcedMovesSquares = new Array<SquareToRender>(forcedMoves.length);
+    for(let i = 0; i < forcedMoves.length; i++){
+        let row = Math.floor(forcedMoves[i] /8);
+        let col = forcedMoves[i] % 8;
 
+        forcedMovesSquares[i] = {row: row, col: col, value: GameBoardSquare.EMPTY};
+    }
+    
     let deactivated = props.moveNumber === props.moveHistoryRef.current.length-1 ? "" : " deactivated-board";
     return (
         <div className={`game-board${deactivated}`} onClick={onBoardClick}>
           {nonEmptySquares.map((piece) => renderPiece(piece, selectedSquare))}
+          {forcedMovesSquares.map((piece) => renderForcedMoveArea(piece))}
         </div>
-      );
+      ); 
 }
 
-const renderPiece = (gamePiece : GamePiece, selectedSquare : { row: number, col: number } | null) => {
+const renderPiece = (gamePiece : SquareToRender, selectedSquare : { row: number, col: number } | null) => {
 
     const left = (12.5 * gamePiece.col) + "%";
     const top = (12.5 * gamePiece.row) + "%";
@@ -93,6 +106,15 @@ const renderPiece = (gamePiece : GamePiece, selectedSquare : { row: number, col:
     
     return <div key={key} className={determineClassName(gamePiece.value) + (isSelected ? " selected" : "")} style={{left:left,top:top}}></div>;
 };
+
+const renderForcedMoveArea = (gamePiece : SquareToRender) => {
+    
+    const key = gamePiece.row + ":" + gamePiece.col;
+    const left = (12.5 * gamePiece.col) + "%";
+    const top = (12.5 * gamePiece.row) + "%";
+    
+    return <div key={key} style={{left:left,top:top}} className={"forced-jump"}/>
+}; 
 
 const determineClassName = (square: GameBoardSquare) : string => {
     switch (square) {

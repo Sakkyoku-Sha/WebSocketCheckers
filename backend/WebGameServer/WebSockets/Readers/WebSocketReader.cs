@@ -1,6 +1,4 @@
-﻿using System.Net.WebSockets;
-
-namespace WebGameServer.WebSocketEncoding.FromClientMessages;
+﻿namespace WebGameServer.WebSockets.FromClientMessages;
 
 public enum FromClientMessageType : ushort
 {
@@ -10,7 +8,7 @@ public enum FromClientMessageType : ushort
     TryCreateGameRequest = 3,
     GetActiveGamesRequest = 4,
 }
-public static class FromClientDecode
+public static class WebSocketReader
 {
     public static void HandleFromClient(byte[] message, UserSession sourceSession)
     {

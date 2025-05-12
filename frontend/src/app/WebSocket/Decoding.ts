@@ -5,7 +5,7 @@ export enum FromServerMessageType
     SessionStartMessage = 0,
     PlayerJoined = 1,
     NewMoveMessage = 2,
-    GameInfoMessage = 3,
+    InitialServerMessage = 3,
     TryJoinGameResultMessage = 4,
     CreateGameResultMessage = 5,
     ActiveGamesMessage = 6,
@@ -13,11 +13,11 @@ export enum FromServerMessageType
 
 export enum GameStatus
 {
-    NoPlayers, 
-    WaitingForPlayers,
-    InProgress,
-    Finished,
-    Abandoned
+    NoPlayers = 0, 
+    WaitingForPlayers = 2,
+    InProgress = 3,
+    Finished = 4,
+    Abandoned = 5
 }
 
 export interface WebSocketMessage {
@@ -32,13 +32,14 @@ export interface PlayerJoinedMessage extends WebSocketMessage {
     playerName : string,
 }
 export interface NewMoveMessage extends WebSocketMessage {
-   move : CheckersMove
+   move : CheckersMove,
+   forcedMovesInPosition : number[], //array of bitboard indices 
 }
 export interface TryJoinGameResult extends WebSocketMessage {
     didJoinGame : boolean
-    gameInfo : GameInfoMessage | null,
+    gameInfo : GameInfo | null,
 }
-export interface GameInfoMessage extends WebSocketMessage {
+export interface GameInfo {
     gameId : number,
     gameStatus : GameStatus,
     gameName : string,
@@ -52,10 +53,10 @@ export interface GameInfoMessage extends WebSocketMessage {
     historyCount : number,
     history : Array<CheckersMove>
 }
+
 export interface CreateGameResultMessage extends WebSocketMessage {
     gameId : number
 }
-
 export interface GameMetaData{
     gameId : number,
     player1Name : string,
@@ -65,11 +66,17 @@ export interface ActiveGamesMessage extends WebSocketMessage {
     activeGames : GameMetaData[]
 }
 
+export interface InitialServerMessage extends WebSocketMessage {
+    activeGamesCount : number,
+    activeGames : GameMetaData[]
+    gameInfo : GameInfo | null,
+}
+
 type DecodeResult = WebSocketMessage | 
                     SessionStartMessage |
                     PlayerJoinedMessage | 
                     NewMoveMessage |    
-                    GameInfoMessage |
+                    InitialServerMessage |
                     TryJoinGameResult |
                     CreateGameResultMessage | 
                     ActiveGamesMessage;
@@ -79,14 +86,13 @@ function decodeSessionStartMessage(byteReader: ByteReader, version: number) : Se
         type : FromServerMessageType.SessionStartMessage,
         version : version,
         sessionId : byteReader.readGuid(),
-    };
+    };  
 }
 
 function decodePlayerJoined(byteReader: ByteReader, version: number): PlayerJoinedMessage {
     
     const playerId = byteReader.readGuid();
-    const playerNameLength = byteReader.readUint8();
-    const playerName = byteReader.readStringUTF16LE(playerNameLength);
+    const playerName = byteReader.readLengthPrefixedStringUTF16LE();
     
     return {
         type : FromServerMessageType.PlayerJoined,
@@ -97,34 +103,38 @@ function decodePlayerJoined(byteReader: ByteReader, version: number): PlayerJoin
 }
 
 function decodeNewMoveMessage(byteReader: ByteReader, version: number) :  NewMoveMessage {
+    
+    const move = byteReader.readCheckersMove();
+    const forcedMovesInPositionCount = byteReader.readUint8(); 
+    const forcedMovesInPosition = new Array<number>(forcedMovesInPositionCount); 
+    for(let i = 0; i < forcedMovesInPositionCount; i++){
+        forcedMovesInPosition[i] = byteReader.readInt32();
+    }
+    
     return {
         type : FromServerMessageType.NewMoveMessage,
         version : version,
-        move : byteReader.readCheckersMove(),
+        move : move,
+        forcedMovesInPosition : forcedMovesInPosition,
     };
 }
 
-function decodeGameInfoMessage(byteReader: ByteReader, version: number) : GameInfoMessage {
+function decodeGameInfo(byteReader: ByteReader) : GameInfo {
     
     const gameId = byteReader.readInt32();
     const gameStatus = byteReader.readUint8() as GameStatus;
-    const gameNameLength = byteReader.readUint8();
-    const gameName = byteReader.readStringUTF16LE(gameNameLength);
+    const gameName = byteReader.readLengthPrefixedStringUTF16LE();
     
     const player1Id = byteReader.readGuid();
-    const player1NameLength = byteReader.readUint8();
-    const player1Name = byteReader.readStringUTF16LE(player1NameLength); 
+    const player1Name = byteReader.readLengthPrefixedStringUTF16LE(); 
     
     const player2Id = byteReader.readGuid();
-    const player2NameLength = byteReader.readUint8();
-    const player2Name = byteReader.readStringUTF16LE(player2NameLength);
+    const player2Name = byteReader.readLengthPrefixedStringUTF16LE();
     
     const historyCount = byteReader.readUint16();
     const history = byteReader.readCheckersMoves(historyCount);
     
     return {
-        type: FromServerMessageType.GameInfoMessage,
-        version : version,
         
         gameId : gameId,
         gameStatus : gameStatus,
@@ -144,9 +154,9 @@ function decodeGameInfoMessage(byteReader: ByteReader, version: number) : GameIn
 function decodeTryJoinGameResult(byteReader: ByteReader, version: number) : TryJoinGameResult {
     
     const didJoinGame = byteReader.readUint8();
-    let gameInfoMessage : GameInfoMessage | null = null;
+    let gameInfoMessage : GameInfo | null = null;
     if(didJoinGame) {
-        gameInfoMessage = decodeGameInfoMessage(byteReader, version);
+        gameInfoMessage = decodeGameInfo(byteReader);
     }
     
     return {
@@ -167,39 +177,49 @@ function decodeCreateGameResult(byteReader: ByteReader, version: number) : Creat
 }
 
 function decodeActiveGamesMessage(byteReader: ByteReader, version: number) : ActiveGamesMessage {
-    
-    const activeGames : GameMetaData[] = [];
-    
-    while(byteReader.bytesRemaining > 0){
-        
-        const gameId = byteReader.readInt32();
-        
-        const player1NameLength = byteReader.readUint8();
-        let player1Name = "";
-        if(player1NameLength > 0){
-            player1Name = byteReader.readStringUTF16LE(player1NameLength);
-        }
-        
-        const player2NameLength = byteReader.readUint8();
-        let player2Name = ""; 
-        if(player2NameLength > 0){
-            player2Name = byteReader.readStringUTF16LE(player2NameLength);
-        }
-        
-        activeGames.push({
-            gameId : gameId,
-            player1Name : player1Name,
-            player2Name : player2Name,
-        })
-    }
-    
     return {
         type: FromServerMessageType.ActiveGamesMessage,
         version: version,
-        activeGames: activeGames,
+        activeGames: decodeGameMetaData(byteReader),
+    }
+}
+function decodeGameMetaData(byteReader: ByteReader) : GameMetaData[] {
+    
+    let activeGamesLength = byteReader.readUint16();
+    let activeGames = Array<GameMetaData>(activeGamesLength);
+    
+    for(let i = 0; i < activeGamesLength; i++){
+        const gameId = byteReader.readInt32();
+        const player1Name = byteReader.readLengthPrefixedStringUTF16LE();
+        const player2Name = byteReader.readLengthPrefixedStringUTF16LE();
+        activeGames[i] = {
+            gameId : gameId,
+            player1Name : player1Name,
+            player2Name : player2Name
+        }
     }
     
+    return activeGames;
+}
+
+function decodeInitialServerMessage(byteReader: ByteReader, version: number): DecodeResult {
     
+    const activeGames = decodeGameMetaData(byteReader);
+
+    let gameInfo : GameInfo | null = null;
+    let wasInGame = byteReader.readUint8(); 
+    
+    if(wasInGame === 1 && byteReader.bytesRemaining > 0) {
+        gameInfo = decodeGameInfo(byteReader);
+    }
+    
+    return {
+        type : FromServerMessageType.InitialServerMessage,
+        version : version,
+        activeGamesCount : activeGames.length,
+        activeGames : activeGames,
+        gameInfo : gameInfo,
+    }
 }
 
 export function decode(arrayBuffer : ArrayBuffer) : DecodeResult {
@@ -216,8 +236,8 @@ export function decode(arrayBuffer : ArrayBuffer) : DecodeResult {
             return decodePlayerJoined(byteReader, version); 
         case FromServerMessageType.NewMoveMessage:
             return decodeNewMoveMessage(byteReader, version); 
-        case FromServerMessageType.GameInfoMessage:
-            return decodeGameInfoMessage(byteReader, version);
+        case FromServerMessageType.InitialServerMessage:
+            return decodeInitialServerMessage(byteReader, version);
         case FromServerMessageType.TryJoinGameResultMessage:
             return decodeTryJoinGameResult(byteReader, version);
         case FromServerMessageType.CreateGameResultMessage:
@@ -229,3 +249,5 @@ export function decode(arrayBuffer : ArrayBuffer) : DecodeResult {
         default: throw new Error("Unknown type '" + type + "'");   
     }
 }
+
+

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Diagnostics;
 using WebGameServer;
 using WebGameServer.GameStateManagement.GameStateStore;
 
@@ -13,10 +14,10 @@ LocalGameSpace.Initialize();
 //Setup Web Server 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
-builder.Logging.ClearProviders(); // Clear any pre-configured logging providers
-builder.Logging.AddConsole(); // Add Console logging
-builder.Logging.AddDebug(); // Add Debug output
-builder.Logging.SetMinimumLevel(LogLevel.Debug); // Set the minimum log level to Debug or Trace for higher verbosity
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+builder.Logging.SetMinimumLevel(LogLevel.Trace); // Set the minimum log level to Debug or Trace for higher verbosity
 
 var myAllowSpecificOrigins = "_myAllowSpecificOrigins";
 builder.Services.AddCors(options =>
@@ -44,6 +45,30 @@ app.Map("/ws", async context =>
     {
         context.Response.StatusCode = 400; // Bad Request
     }
+});
+
+TaskScheduler.UnobservedTaskException += (sender, args) =>
+{
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
+    logger.LogError(args.Exception, "An unobserved task exception occurred.");
+    args.SetObserved(); // Prevents the process from terminating
+};
+
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+        var exceptionHandlerPathFeature = context.Features.Get<IExceptionHandlerPathFeature>();
+
+        if (exceptionHandlerPathFeature?.Error is Exception ex)
+        {
+            logger.LogError(ex, "Unhandled exception occurred.");
+        }
+
+        context.Response.StatusCode = 500;
+        await context.Response.WriteAsync("An error occurred.");
+    });
 });
 
 app.Run();

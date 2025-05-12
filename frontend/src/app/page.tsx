@@ -14,7 +14,8 @@ import {
     ActiveGamesMessage,
     CreateGameResultMessage,
     decode,
-    FromServerMessageType, GameInfoMessage,
+    FromServerMessageType, GameInfo,
+    InitialServerMessage,
     NewMoveMessage,
     PlayerJoinedMessage,
     SessionStartMessage,
@@ -46,10 +47,11 @@ export default function Home() {
   const wsRef = useRef<WebSocket | null>(null);
   const moveHistory = useRef<CheckersMove[]>([]); 
   const sessionIdRef = useRef<string | null>(null);
-
+  
+  const forcedMovesRef = useRef<number[]>([]); //array of bitboard indices; 
   const [moveNumber, setMoveNumber] = useState<number>(-1);
   
-  const onGameInfoMessage = (gameInfo : GameInfoMessage) => {
+  const onGameInfoMessage = (gameInfo : GameInfo) => {
       gameId.current = gameInfo.gameId;
       moveHistory.current = gameInfo.history; 
       setMoveNumber(gameInfo.historyCount-1);
@@ -74,13 +76,27 @@ export default function Home() {
             break;
         
         case FromServerMessageType.NewMoveMessage:
-            moveHistory.current.push((resultingMessage as NewMoveMessage).move);
+            let newMoveMessage = (resultingMessage as NewMoveMessage);
+            forcedMovesRef.current = newMoveMessage.forcedMovesInPosition;
+            
+            moveHistory.current.push(newMoveMessage.move);
             setMoveNumber(moveHistory.current.length - 1);
+       
             break;
             
-        case FromServerMessageType.GameInfoMessage:
-            const gameInfoMessage = (resultingMessage as GameInfoMessage);
-            onGameInfoMessage(gameInfoMessage);
+        case FromServerMessageType.InitialServerMessage:
+            const gameInfoMessage = (resultingMessage as InitialServerMessage);
+            if(gameInfoMessage.gameInfo !== null) {
+                onGameInfoMessage(gameInfoMessage.gameInfo);
+            }
+            if(gameInfoMessage.activeGames.length > 0){
+                Subscriptions.activeGamesMessageEvent.emit({
+                    version : 1,
+                    type : FromServerMessageType.InitialServerMessage,
+                    activeGames: gameInfoMessage.activeGames
+                })
+            }
+          
             break;
             
         case FromServerMessageType.TryJoinGameResultMessage:
@@ -185,7 +201,11 @@ export default function Home() {
             
           </div>
           <div className="game-area">
-            <GameBoard makeMove={TryMakeMove} moveHistoryRef={moveHistory} moveNumber={moveNumber} gameIdRef={gameId}/>
+            <GameBoard makeMove={TryMakeMove} 
+                       moveHistoryRef={moveHistory} 
+                       moveNumber={moveNumber}
+                       forcedMovesInPosition={forcedMovesRef}
+                       gameIdRef={gameId}/>
           </div>
           <div className="player-one-info">
 

@@ -1,6 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using WebGameServer.GameLogic;
-using WebGameServer.State;
+﻿using WebGameServer.State;
 
 namespace WebGameServer.GameStateManagement.GameStateStore;
 
@@ -56,6 +54,10 @@ public static class LocalGameSpace
                     _activeGames.Add(newGameId);
                 }
             }
+            catch (Exception exception)
+            {
+                Console.WriteLine(exception);
+            }
             finally
             {
                 gameSlot.GameLock.Release();  // Release the lock
@@ -72,19 +74,19 @@ public static class LocalGameSpace
         return new TryCreateGameResult(newGameId);
     }
     
-    public static async Task TrySetPlayerInfo(int gameId, Guid playerId, string playerName, Func<GameInfo, PlayerInfo?, Task> OnSuccess, Action onFail)
+    public static async Task TrySetPlayerInfo(int gameId, Guid playerId, string playerName, Func<GameInfo, PlayerInfo, Task> OnSuccess, Action onFail)
     {
         await LockExecuteState(gameId, async (gameInfo) =>
         {
-            PlayerInfo? opponentInfo;
+            PlayerInfo opponentInfo;
 
             //trying to join an already occupied position
-            if (gameInfo.Player1 != null && gameInfo.Player2 != null)
+            if (gameInfo.Player1.IsDefined && gameInfo.Player2.IsDefined)
             {
                 onFail();
                 return;
             }
-            if (gameInfo.Player1 == null)
+            if (gameInfo.Player1.IsDefined)
             {
                 gameInfo.Player1 = new PlayerInfo(playerId, playerName);
                 opponentInfo = gameInfo.Player2;
@@ -114,7 +116,7 @@ public static class LocalGameSpace
         });
     }
 
-    public static GameMetaData[] GetActiveGame()
+    public static GameMetaData[] GetActiveGames()
     {
         var result = new GameMetaData[_activeGames.Count];
         for (var i = 0; i < _activeGames.Count; i++)
@@ -122,7 +124,7 @@ public static class LocalGameSpace
             var gameId = _activeGames[i];
             
             var gameInfo = _gameSpace[gameId].GameInfo; 
-            result[i] = new GameMetaData(gameId, gameInfo.Player1, gameInfo.Player2);
+            result[i] = new GameMetaData(gameId, ref gameInfo.Player1, ref gameInfo.Player2);
         }
         return result;
     }
@@ -155,6 +157,10 @@ public static class LocalGameSpace
         {
             mutation(gameSlot.GameInfo);
         }
+        catch (Exception exception)
+        {
+            Console.WriteLine(exception);
+        }
         finally
         {
             gameSlot.GameLock.Release();  // Release the lock
@@ -162,7 +168,7 @@ public static class LocalGameSpace
     }
     public static async Task<TResult?> LockExecuteState<TResult>(int gameId, Func<GameInfo, TResult> mutation)
     {
-        TResult? result;
+        TResult? result = default;
         
         var gameSlot = GetGameSlotIfValid(gameId);
         
@@ -170,6 +176,10 @@ public static class LocalGameSpace
         try
         {
             result = mutation(gameSlot.GameInfo);
+        }
+        catch (Exception exception)
+        {
+            Console.WriteLine(exception);
         }
         finally
         {
@@ -188,6 +198,10 @@ public static class LocalGameSpace
         {
             await mutation(gameSlot.GameInfo);
         }
+        catch (Exception exception)
+        {
+            Console.WriteLine(exception);
+        }
         finally
         {
             gameSlot.GameLock.Release();  // Release the lock
@@ -196,7 +210,7 @@ public static class LocalGameSpace
     
     public static async Task<TResult?> LockExecuteState<TResult>(int gameId, Func<GameInfo, Task<TResult>> mutation)
     {
-        TResult? result;
+        TResult? result = default;
         
         var gameSlot = GetGameSlotIfValid(gameId);
         
@@ -204,6 +218,10 @@ public static class LocalGameSpace
         try
         {
             result = await mutation(gameSlot.GameInfo);
+        }
+        catch (Exception exception)
+        {
+            Console.WriteLine(exception);
         }
         finally
         {
@@ -227,9 +245,9 @@ public readonly struct TryCreateGameResult(int gameId)
     public readonly int GameId = gameId;
 }
 
-public readonly struct GameMetaData(int gameId, PlayerInfo? player1, PlayerInfo? player2)
+public struct GameMetaData(int gameId, ref PlayerInfo player1, ref PlayerInfo player2)
 {
-    public readonly PlayerInfo? Player1 = player1;
-    public readonly PlayerInfo? Player2 = player2;
+    public PlayerInfo  Player1 = player1;
+    public PlayerInfo Player2 = player2;
     public readonly int GameId = gameId; 
 }

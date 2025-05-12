@@ -2,27 +2,17 @@
 
 namespace WebGameServer;
 
-public class UserSession
+public class UserSession(WebSocket socket, Guid sessionId)
 {
-    private readonly WebSocket _socket;
-    public UserSession(WebSocket socket, Guid sessionId)
-    {
-        _socket = socket;
-        SocketWriter = new WebSocketWriter(socket); 
-        SessionId = sessionId;
-        PlayerId = null;
-        GameId = -1; 
-        Identified = false;
-        TimeOutToken = new CancellationToken();
-    }
+    private readonly WebSocket _socket = socket;
 
-    public readonly WebSocketWriter SocketWriter;
-    public Guid? PlayerId;
-    public Guid SessionId;
-    public bool Identified;
-    public int GameId;
+    public readonly WebSocketChannel SocketChannel = new(socket);
+    public Guid? PlayerId = null;
+    public Guid SessionId = sessionId;
+    public bool Identified = false;
+    public int GameId = -1;
     public bool IsInGame => GameId >= 0;
-    public CancellationToken TimeOutToken;
+    public CancellationToken TimeOutToken = CancellationToken.None;
     public WebSocketState State => _socket.State;
 
     public async Task CloseAsync(WebSocketCloseStatus normalClosure, string empty, CancellationToken none)

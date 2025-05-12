@@ -12,8 +12,4 @@ public class GameStateTests
         
         Assert.IsTrue(GameState.IsBitSet(state.Player1Pawns, GameState.GetBitIndex(0, 5)));
     }
-
-   
-    
-    
 }

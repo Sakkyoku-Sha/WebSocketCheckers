@@ -3,12 +3,12 @@ using System.Threading.Channels;
 
 namespace WebGameServer;
 
-public class WebSocketWriter
+public class WebSocketChannel
 {
     private readonly Channel<(ArraySegment<byte>, TaskCompletionSource<bool>)> _channel;
     private readonly WebSocket _webSocket;
     
-    public WebSocketWriter(WebSocket webSocket, int capacity = 100)
+    public WebSocketChannel(WebSocket webSocket, int capacity = 100)
     {
         _webSocket = webSocket;
         _channel = Channel.CreateBounded<(ArraySegment<byte>, TaskCompletionSource<bool>)>(new BoundedChannelOptions(capacity));
@@ -16,7 +16,7 @@ public class WebSocketWriter
         _ = ConsumeSendQueueAsync();
     }
 
-    public async Task SendAsync(ArraySegment<byte> segment)
+    public async Task SendAsync(byte[] segment)
     {
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         await _channel.Writer.WriteAsync((segment, tcs));

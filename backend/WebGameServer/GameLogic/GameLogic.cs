@@ -35,7 +35,23 @@ public static class GameLogic
         
         //Flip Turns, jumps must go to the last possible position and turns change. 
         state.IsPlayer1Turn = !state.IsPlayer1Turn;
+
+        var forcedJumps = DetermineForcedJumpsInPosition(ref state);
+        state.CurrentForcedJumps = forcedJumps;
+        
         return new TryMoveResult(true, shouldPromote, validationResult.JumpInfo?.capturedPieces ?? 0ul);
+    }
+
+    private static JumpPath[] DetermineForcedJumpsInPosition(ref GameState state)
+    {
+        var playerPieces = state.IsPlayer1Turn ? state.Player1Pawns | state.Player1Kings : state.Player2Pawns | state.Player2Kings;
+        var allPieces = state.GetAllPieces();
+        
+        Span<JumpPath> results = stackalloc JumpPath[6];
+        Span<JumpPath> work    = stackalloc JumpPath[32];
+        var count = DetermineAllPossibleJumps(state.IsPlayer1Turn, playerPieces, playerPieces, allPieces, results, work);
+        
+        return results[..count].ToArray();
     }
 
     private static void PromotePiece(ref GameState state, int toBitIndex)
@@ -110,30 +126,44 @@ public static class GameLogic
         }
         
         //Randomly fined tuned values to work "in average cases" 
-        Span<StackFrame> results = stackalloc StackFrame[6];
-        Span<StackFrame> work    = stackalloc StackFrame[32];
-        int count = DetermineAllPossibleJumps(state.IsPlayer1Turn, playerPieces, playerKings, allPieces, results, work);
-        if (count == 0 && Math.Abs(dx) == 1 && Math.Abs(dy) == 1)
+        var forcedJumps = state.CurrentForcedJumps; 
+        var count = forcedJumps.Length;
+        if (count == 0) //if we haven't precalced the jumps in the previous step
         {
-            return new MoveValidationResult(true, null);
+            Span<JumpPath> results = stackalloc JumpPath[6];
+            Span<JumpPath> work    = stackalloc JumpPath[32];
+            count = DetermineAllPossibleJumps(
+                state.IsPlayer1Turn,
+                playerPieces,
+                playerKings,
+                allPieces,
+                results,
+                work
+            );
+            if (count == 0 && Math.Abs(dx) == 1 && Math.Abs(dy) == 1)
+            {
+                return new MoveValidationResult(true, null);
+            }
+            forcedJumps = results[..count].ToArray();
         }
         
         //Only valid if there is a path with an end with the request to location.
-        StackFrame jumpPath = default;
+        JumpPath selectedJumpPath = default;
         for (var i = 0; i < count; i++)
         {
-            if (results[i].CurrentEndOfPath == toBitIndex && results[i].InitialPosition == fromBitIndex)
+            var jumpPath = forcedJumps[i];
+            if (jumpPath.CurrentEndOfPath == toBitIndex && jumpPath.InitialPosition == fromBitIndex)
             {
-                jumpPath = results[i];
+                selectedJumpPath = forcedJumps[i];
                 break;
             }
         }
-        if (jumpPath.CapturedPieces == 0ul) //should Only occur in made up cases as this would be a jump without any captures 
+        if (selectedJumpPath.CapturedPieces == 0ul) //should Only occur in made up cases as this would be a jump without any captures 
         {
             return MoveValidationResult.Invalid;
         }
         
-        return new MoveValidationResult(true, (jumpPath.CapturedPieces, jumpPath.IsKing));
+        return new MoveValidationResult(true, (selectedJumpPath.CapturedPieces, selectedJumpPath.IsKing));
     }
     private static void MovePlayerPiece(ref GameState state, int fromBitIndex, int toBitIndex, bool wasKing)
     {
@@ -148,22 +178,14 @@ public static class GameLogic
         GameState.ClearBit(ref playerPieceBoard, fromBitIndex);
         GameState.SetBit(ref playerPieceBoard, toBitIndex);
     }
-
-    private struct StackFrame(int currentEndOfPath, bool isKing, ulong capturedPieces, int initialPosition)
-    {
-        public int CurrentEndOfPath = currentEndOfPath;
-        public bool IsKing = isKing;
-        public ulong CapturedPieces = capturedPieces;
-        public int InitialPosition = initialPosition; 
-    }
     
     private static int DetermineAllPossibleJumps(
         bool isP1,
         ulong pPieces,
         ulong pKings,
         ulong allPieces,
-        Span<StackFrame> results,  // e.g. stackalloc StackFrame[6]
-        Span<StackFrame> work      // e.g. stackalloc StackFrame[32]
+        Span<JumpPath> results,  // e.g. stackalloc StackFrame[6]
+        Span<JumpPath> work      // e.g. stackalloc StackFrame[32]
     )
     {
         int resCount = 0, workCount = 0;
