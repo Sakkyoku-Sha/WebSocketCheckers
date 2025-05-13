@@ -304,6 +304,46 @@ public class GameLogicTests
     }
     
     [Test]
+    public void PawnsDoNotPromoteOnComplexJumps()
+    {
+        var boardString = new string[]
+        {
+            ".e.e.e.e", // row 0
+            "e.....e.", // row 1
+            "...e...e", // row 2: 
+            "..e.....", // row 3: 
+            ".p......", // row 4
+            "p...p.p.", // row 5
+            ".....p.p", // row 6
+            "p...p.p.", // row 7
+        };
+        var state = CreateBoardFromStringArray(boardString);
+        state.IsPlayer1Turn = false;
+        
+        GameLogic.TryApplyMove(ref state, IndexFromString("D8"), IndexFromString("E7"));
+        GameLogic.TryApplyMove(ref state, IndexFromString("E3"), IndexFromString("F4"));
+        GameLogic.TryApplyMove(ref state, IndexFromString("D6"), IndexFromString("E5"));
+        GameLogic.TryApplyMove(ref state, IndexFromString("B4"), IndexFromString("D6"));
+        
+        var result = GameLogic.TryApplyMove(ref state, IndexFromString("E7"), IndexFromString("C5"));
+        Assert.IsTrue(result.Success);
+        
+        //Should not be able to make this jump, no move should have turned this piece into a king
+        result = GameLogic.TryApplyMove(ref state, IndexFromString("F4"), IndexFromString("B4"));
+        Assert.IsFalse(result.Success);
+    }
+
+    private static readonly char[] CharIndicies = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    private static readonly char[] NumIndicies = ['1', '2', '3', '4', '5', '6', '7', '8'];
+    private static int IndexFromString(string str)
+    {
+        var col = CharIndicies.Index().First(x => x.Item == str[0]).Index;
+        var row = NumIndicies.Length - NumIndicies.Index().First(x => x.Item == str[1]).Index - 1;
+        return GameState.GetBitIndex(col, row);
+    }
+    
+    
+    [Test]
     public void ComplexJumpIntoLoopTest()
     {
         var boardString = new string[]
@@ -449,7 +489,7 @@ public class GameLogicTests
         var toBit = GameState.GetBitIndex(5, 4);
         Assert.That(GameLogic.TryApplyMove(ref state, fromBit, toBit).Success, Is.False);
     }
-
+    
     private void ExecuteAndVerify(GameState state, (byte x, byte y) start,
         ((byte x, byte y) to, bool expectedSuccess)[] moves)
     {

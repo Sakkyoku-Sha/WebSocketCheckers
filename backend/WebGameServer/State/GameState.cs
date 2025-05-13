@@ -75,9 +75,9 @@ public struct GameState()
     public ulong GetAllPieces() => Player1Pawns | Player2Pawns | Player2Kings | Player1Kings;
 } 
 
-public struct JumpPath(int currentEndOfPath, bool isKing, ulong capturedPieces, int initialPosition)
+public struct JumpPath(int endOfPath, bool isKing, ulong capturedPieces, int initialPosition)
 {
-    public int CurrentEndOfPath = currentEndOfPath;
+    public int EndOfPath = endOfPath;
     public bool IsKing = isKing;
     public ulong CapturedPieces = capturedPieces;
     public int InitialPosition = initialPosition; 

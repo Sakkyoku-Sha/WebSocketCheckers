@@ -139,6 +139,23 @@ public class ByteWriterTests
     }
     
     [Test]
+    public void ForcedMovesWriter_CalculatePayLoadLength_ReturnsCorrectLength()
+    {
+        var jumps = new[]
+        {
+           new JumpPath(1,true, 0, 9),
+           new JumpPath(2,true, 0, 4),
+        };
+        
+        var writer = new ForcedMovesWriter(jumps);
+        var byteWriter = new ByteWriter(new byte[1024]);
+        
+        writer.WriteBytes(ref byteWriter);
+        
+        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.BytesWritten));
+    }
+    
+    [Test]
     public void StringEncodingLength_SimpleAscii_ReturnsCorrectLength()
     {
         var input = "Hi"; // 2 characters

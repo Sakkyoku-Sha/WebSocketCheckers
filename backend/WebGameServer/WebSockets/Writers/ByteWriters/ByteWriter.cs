@@ -97,6 +97,5 @@ public ref struct ByteWriter
         _buffer[_offset] = boolean ? (byte)1 : (byte)0;
         _offset += 1;
     }
-
     public int BytesWritten => _offset;
 }

@@ -3,26 +3,19 @@ using WebGameServer.WebSockets.Writers.ByteWriters;
 
 namespace WebGameServer.WebSockets.Writers.MessageWriters;
 
-public struct NewMoveWriter(ref CheckersMove checkersMove, int[] forcedMovesInPosition) : IMessageWriter
+public struct NewMoveWriter(ref CheckersMove checkersMove, JumpPath[] jumpPaths) : IMessageWriter
 {
     private CheckersMove _checkersMove = checkersMove;
+    private readonly ForcedMovesWriter _forcedMovesWriter = new(jumpPaths);
+    
     public void WriteBytes(ref ByteWriter byteWriter)
     {
         byteWriter.WriteCheckersMove(ref _checkersMove);
-        byteWriter.WriteByte((byte)forcedMovesInPosition.Length);
-        for(var i = 0; i < forcedMovesInPosition.Length; i++)
-        {
-            byteWriter.WriteInt(forcedMovesInPosition[i]);
-        }
+        _forcedMovesWriter.WriteBytes(ref byteWriter);
     }
     public int CalculatePayLoadLength()
     {
-        var totalBytes = CheckersMove.ByteSize + sizeof(byte);
-        for(var i = 0; i < forcedMovesInPosition.Length; i++)
-        {
-            totalBytes += sizeof(int);
-        }
-        return totalBytes;
+        return CheckersMove.ByteSize + _forcedMovesWriter.CalculatePayLoadLength();
     }
 
     public static ToClientMessageType MessageType => ToClientMessageType.NewMoveMessage;

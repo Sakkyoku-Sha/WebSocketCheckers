@@ -27,7 +27,9 @@ public static class GameLogic
         }
         
         //Promotion Logic. 
-        var shouldPromote = ShouldPromote(toBitIndex, state.IsPlayer1Turn) | validationResult.JumpInfo?.jumpedIntoPromotionSquare ?? false; 
+        var shouldPromote = ShouldPromote(toBitIndex, state.IsPlayer1Turn) 
+                            || (validationResult.JumpInfo?.jumpedIntoPromotionSquare ?? false);
+ 
         if (shouldPromote)
         {
             PromotePiece(ref state, toBitIndex);
@@ -44,12 +46,19 @@ public static class GameLogic
 
     private static JumpPath[] DetermineForcedJumpsInPosition(ref GameState state)
     {
-        var playerPieces = state.IsPlayer1Turn ? state.Player1Pawns | state.Player1Kings : state.Player2Pawns | state.Player2Kings;
+        var playerPieces = state.IsPlayer1Turn 
+            ? state.Player1Pawns | state.Player1Kings 
+            : state.Player2Pawns | state.Player2Kings;
+        
+        var playerKings = state.IsPlayer1Turn 
+            ? state.Player1Kings 
+            : state.Player2Kings;
+        
         var allPieces = state.GetAllPieces();
         
         Span<JumpPath> results = stackalloc JumpPath[6];
         Span<JumpPath> work    = stackalloc JumpPath[32];
-        var count = DetermineAllPossibleJumps(state.IsPlayer1Turn, playerPieces, playerPieces, allPieces, results, work);
+        var count = DetermineAllPossibleJumps(state.IsPlayer1Turn, playerPieces, playerKings, allPieces, results, work);
         
         return results[..count].ToArray();
     }
@@ -152,7 +161,7 @@ public static class GameLogic
         for (var i = 0; i < count; i++)
         {
             var jumpPath = forcedJumps[i];
-            if (jumpPath.CurrentEndOfPath == toBitIndex && jumpPath.InitialPosition == fromBitIndex)
+            if (jumpPath.EndOfPath == toBitIndex && jumpPath.InitialPosition == fromBitIndex)
             {
                 selectedJumpPath = forcedJumps[i];
                 break;
@@ -196,7 +205,7 @@ public static class GameLogic
         {
             int i = BitOperations.TrailingZeroCount(pPieces);
             bool king = ((pKings >> i) & 1) != 0;
-            work[workCount].CurrentEndOfPath = i;
+            work[workCount].EndOfPath = i;
             work[workCount].IsKing = king;
             work[workCount].CapturedPieces = 0ul;
             work[workCount].InitialPosition = i;
@@ -208,7 +217,7 @@ public static class GameLogic
         while (workCount > 0)
         {
             var f = work[--workCount];
-            int i = f.CurrentEndOfPath;
+            int i = f.EndOfPath;
             int file = i & 7, rank = i >> 3;
             bool up    = rank > 1  && (f.IsKing || isP1);
             bool down  = rank < 6  && (f.IsKing || !isP1);
@@ -228,7 +237,7 @@ public static class GameLogic
                     ulong nextCap = f.CapturedPieces | (1UL << over);
                     bool nextKing = f.IsKing || ShouldPromote(to, isP1);
                     
-                    work[workCount].CurrentEndOfPath = to;
+                    work[workCount].EndOfPath = to;
                     work[workCount].IsKing = nextKing;
                     work[workCount].CapturedPieces = nextCap;
                     work[workCount].InitialPosition = f.InitialPosition;
@@ -249,7 +258,7 @@ public static class GameLogic
                     ulong nextCap = f.CapturedPieces | (1UL << over);
                     bool nextKing = f.IsKing || ShouldPromote(to, isP1);
                     
-                    work[workCount].CurrentEndOfPath = to;
+                    work[workCount].EndOfPath = to;
                     work[workCount].IsKing = nextKing;
                     work[workCount].CapturedPieces = nextCap;
                     work[workCount].InitialPosition = f.InitialPosition;
@@ -270,7 +279,7 @@ public static class GameLogic
                     ulong nextCap = f.CapturedPieces | (1UL << over);
                     bool nextKing = f.IsKing || ShouldPromote(to, isP1);
                     
-                    work[workCount].CurrentEndOfPath = to;
+                    work[workCount].EndOfPath = to;
                     work[workCount].IsKing = nextKing;
                     work[workCount].CapturedPieces = nextCap;
                     work[workCount].InitialPosition = f.InitialPosition;
@@ -291,7 +300,7 @@ public static class GameLogic
                     ulong nextCap = f.CapturedPieces | (1UL << over);
                     bool nextKing = f.IsKing || ShouldPromote(to, isP1);
                    
-                    work[workCount].CurrentEndOfPath = to;
+                    work[workCount].EndOfPath = to;
                     work[workCount].IsKing = nextKing;
                     work[workCount].CapturedPieces = nextCap;
                     work[workCount].InitialPosition = f.InitialPosition;

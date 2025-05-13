@@ -153,18 +153,29 @@ html, body{
 .player1-pawn, .player2-pawn, .player1-king, .player2-king {
   background-size: contain;
   background-repeat: no-repeat;
-  width: 12.5%;  /* 1/8th of the board */
-  height: 12.5%;
+  width: 12.6%;  /* 1/8th of the board */
+  height: 12.6%;
   position: absolute;
 }
 
 .forced-jump{
-  background-color: #ffcc00;
-  padding: 4px;
-  font-weight: bold;
-  width: 12.5%;  /* 1/8th of the board */
-  height: 12.5%;
+  width: 12.6%;  /* 1/8th of the board */
+  height: 12.6%;
   position: absolute;
+  border-radius: 100%;
+}
+
+.forced-jump-0{
+  background-color: rgba(255, 200, 0, 1.0);
+}
+.forced-jump-1{
+  background-color: rgba(245, 200, 0, 0.5);
+}
+.forced-jump-2{
+  background-color: rgba(255, 204, 0, 0.2);
+}
+.forced-jump-3{
+  background-color: rgba(215, 204, 0, 0.2);;
 }
 
 body {

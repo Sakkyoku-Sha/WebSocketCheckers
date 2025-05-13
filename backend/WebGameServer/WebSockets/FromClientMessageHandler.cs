@@ -33,8 +33,7 @@ public static class FromClientMessageHandler
     {
         var playerIds = gameInfo.GetNonNullUsers().Select(x => x.PlayerId).ToArray();
         var sessionIds = SessionSocketHandler.GetSessionsForPlayers(playerIds);
-        var forcedMovesInPosition = gameInfo.GameState.CurrentForcedJumps.Select(x => x.CurrentEndOfPath).ToArray(); 
-        await WebSocketWriter.WriteNewMoveAsync(sessionIds, move, forcedMovesInPosition);
+        await WebSocketWriter.WriteNewMoveAsync(sessionIds, move, gameInfo.GameState.CurrentForcedJumps);
     }
 
     public static async Task OnTryJoinGameRequest(UserSession session, TryJoinGameRequest request)

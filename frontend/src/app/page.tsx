@@ -13,7 +13,7 @@ import GamesPanel from "./gamesPanel";
 import {
     ActiveGamesMessage,
     CreateGameResultMessage,
-    decode,
+    decode, ForcedMove,
     FromServerMessageType, GameInfo,
     InitialServerMessage,
     NewMoveMessage,
@@ -48,13 +48,14 @@ export default function Home() {
   const moveHistory = useRef<CheckersMove[]>([]); 
   const sessionIdRef = useRef<string | null>(null);
   
-  const forcedMovesRef = useRef<number[]>([]); //array of bitboard indices; 
+  const forcedMovesRef = useRef<ForcedMove[]>([]); //array of bitboard indices; 
   const [moveNumber, setMoveNumber] = useState<number>(-1);
   
   const onGameInfoMessage = (gameInfo : GameInfo) => {
       gameId.current = gameInfo.gameId;
       moveHistory.current = gameInfo.history; 
       setMoveNumber(gameInfo.historyCount-1);
+      forcedMovesRef.current = gameInfo.forcedMoves;
   }
   
   const HandleWebSocketData = (byteData : ArrayBuffer) => {

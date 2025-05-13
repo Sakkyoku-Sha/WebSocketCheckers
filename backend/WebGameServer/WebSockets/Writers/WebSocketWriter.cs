@@ -93,7 +93,7 @@ public static class WebSocketWriter
         var writer = new InitialMessageWriter(activeGames, gameInfo);
         await RentWriteSendAsync(session, writer);
     }
-    public static async Task WriteNewMoveAsync(UserSession[] userSessions, CheckersMove checkersMove, int[] forcedMovesInPosition)
+    public static async Task WriteNewMoveAsync(UserSession[] userSessions, CheckersMove checkersMove, JumpPath[] forcedMovesInPosition)
     {
         var writer = new NewMoveWriter(ref checkersMove, forcedMovesInPosition);
         await RentWriteSendAsync(userSessions, writer);

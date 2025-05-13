@@ -10,6 +10,9 @@ public readonly struct GameInfoWriter(GameInfo? gameInfo) : IByteWriter
     private const int GameStatusEncodingLength = 1; 
     private const int GameHistoryLengthEncodingLength = 2;
     
+    private readonly ForcedMovesWriter? _forcedMovesWriter = 
+        gameInfo == null ? null : new ForcedMovesWriter(gameInfo.GameState.CurrentForcedJumps);
+    
     public void WriteBytes(ref ByteWriter byteWriter)
     {
         if (gameInfo == null) return; 
@@ -32,6 +35,9 @@ public readonly struct GameInfoWriter(GameInfo? gameInfo) : IByteWriter
         //Game History Info
         byteWriter.WriteUShort((ushort)gameInfo.MoveHistoryCount);
         byteWriter.WriteCheckersMoves(gameInfo.MoveHistory, gameInfo.MoveHistoryCount);
+        
+        //Forced Moves in Current Position. 
+        _forcedMovesWriter?.WriteBytes(ref byteWriter);
     }
     
     public int CalculatePayLoadLength()
@@ -41,6 +47,7 @@ public readonly struct GameInfoWriter(GameInfo? gameInfo) : IByteWriter
         var gameNameEncodedLength = ByteWriterCommon.StringEncodingLength(gameInfo.GameName);
         var player1NameEncodedLength =  ByteWriterCommon.StringEncodingLength(gameInfo.Player1.PlayerName);
         var player2NameEncodedLength =  ByteWriterCommon.StringEncodingLength(gameInfo.Player2.PlayerName);
+        var forcedMovesLength = _forcedMovesWriter?.CalculatePayLoadLength() ?? 0;
         
         Debug.Assert(gameNameEncodedLength <= byte.MaxValue);
         Debug.Assert(player1NameEncodedLength <= byte.MaxValue);
@@ -53,7 +60,8 @@ public readonly struct GameInfoWriter(GameInfo? gameInfo) : IByteWriter
             ByteWriterCommon.GuidByteLength + player1NameEncodedLength +
             ByteWriterCommon.GuidByteLength + player2NameEncodedLength +
             GameHistoryLengthEncodingLength + 
-            (CheckersMove.ByteSize * gameInfo.MoveHistoryCount);
+            (CheckersMove.ByteSize * gameInfo.MoveHistoryCount) + 
+            forcedMovesLength;
 
         return totalByteCount;
     }

@@ -33,7 +33,7 @@ export interface PlayerJoinedMessage extends WebSocketMessage {
 }
 export interface NewMoveMessage extends WebSocketMessage {
    move : CheckersMove,
-   forcedMovesInPosition : number[], //array of bitboard indices 
+   forcedMovesInPosition : ForcedMove[], //array of bitboard indices 
 }
 export interface TryJoinGameResult extends WebSocketMessage {
     didJoinGame : boolean
@@ -52,6 +52,8 @@ export interface GameInfo {
     
     historyCount : number,
     history : Array<CheckersMove>
+    
+    forcedMoves : ForcedMove[]; 
 }
 
 export interface CreateGameResultMessage extends WebSocketMessage {
@@ -102,15 +104,29 @@ function decodePlayerJoined(byteReader: ByteReader, version: number): PlayerJoin
     }
 }
 
+function decodeForcedMoves(byteReader: ByteReader) : ForcedMove[] {
+    
+    const forcedMovesInPositionCount = byteReader.readUint8();
+    const forcedMovesInPosition = new Array<ForcedMove>(forcedMovesInPositionCount);
+    for (let i = 0; i < forcedMovesInPositionCount; i++) {
+        forcedMovesInPosition[i] = {
+            initialPosition : byteReader.readInt32(),
+            finalPosition : byteReader.readInt32()
+        }
+    }
+    return forcedMovesInPosition;
+}
+export interface ForcedMove {
+    initialPosition : number,
+    finalPosition: number,
+}
+
+
 function decodeNewMoveMessage(byteReader: ByteReader, version: number) :  NewMoveMessage {
     
     const move = byteReader.readCheckersMove();
-    const forcedMovesInPositionCount = byteReader.readUint8(); 
-    const forcedMovesInPosition = new Array<number>(forcedMovesInPositionCount); 
-    for(let i = 0; i < forcedMovesInPositionCount; i++){
-        forcedMovesInPosition[i] = byteReader.readInt32();
-    }
-    
+    const forcedMovesInPosition = decodeForcedMoves(byteReader);
+
     return {
         type : FromServerMessageType.NewMoveMessage,
         version : version,
@@ -134,6 +150,8 @@ function decodeGameInfo(byteReader: ByteReader) : GameInfo {
     const historyCount = byteReader.readUint16();
     const history = byteReader.readCheckersMoves(historyCount);
     
+    const forcedMoves = decodeForcedMoves(byteReader);
+    
     return {
         
         gameId : gameId,
@@ -147,7 +165,9 @@ function decodeGameInfo(byteReader: ByteReader) : GameInfo {
         player2Name : player2Name,
         
         historyCount : historyCount,
-        history : history
+        history : history,
+        
+        forcedMoves : forcedMoves, 
     }
 }
 
