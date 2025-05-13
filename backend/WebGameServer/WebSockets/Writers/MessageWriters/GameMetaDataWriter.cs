@@ -6,7 +6,7 @@ namespace WebGameServer.WebSockets.Writers.MessageWriters;
 
 public readonly struct GameMetaDataWriter(GameMetaData[] gameMetaData) : IMessageWriter
 {
-    private const int ActiveGamesLengthBytes = 2; 
+    private const int ActiveGamesLengthBytes = sizeof(ushort); 
     public void WriteBytes(ref ByteWriter byteWriter)
     {   
         Debug.Assert(gameMetaData.Length <= ushort.MaxValue);

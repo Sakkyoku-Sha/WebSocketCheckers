@@ -9,6 +9,7 @@ export enum FromServerMessageType
     TryJoinGameResultMessage = 4,
     GameCreatedMessage = 5,
     ActiveGamesMessage = 6,
+    TryCreateGameResultMessage = 7,
 }
 
 export enum GameStatus
@@ -81,7 +82,8 @@ type DecodeResult = WebSocketMessage |
                     InitialServerMessage |
                     TryJoinGameResult |
                     GameCreatedMessage | 
-                    ActiveGamesMessage;
+                    ActiveGamesMessage | 
+                    TryCreateGameResultMessage;
 
 function decodeSessionStartMessage(byteReader: ByteReader, version: number) : SessionStartMessage {
     return {
@@ -190,11 +192,11 @@ function decodeTryJoinGameResult(byteReader: ByteReader, version: number) : TryJ
 
 function decodeGameCreated(byteReader: ByteReader, version: number) : GameCreatedMessage {
 
-    const gameMetaData = decodeGameMetaData(byteReader);
+    const gameMetaData = decodeGamesMetaData(byteReader);
     return {
         type : FromServerMessageType.GameCreatedMessage,
         version : version,
-        GameMetaData : gameMetaData
+        GameMetaData : gameMetaData[0],
     };
 }
 
@@ -248,6 +250,17 @@ function decodeInitialServerMessage(byteReader: ByteReader, version: number): De
     }
 }
 
+export interface TryCreateGameResultMessage extends WebSocketMessage {
+    gameId : number
+}
+function decodeTryCreateGameResult(byteReader: ByteReader, version: number) : TryCreateGameResultMessage {
+    return {
+        type : FromServerMessageType.TryCreateGameResultMessage,
+        version : version,
+        gameId : byteReader.readInt32(),
+    }
+}
+
 export function decode(arrayBuffer : ArrayBuffer) : DecodeResult {
     
     const byteReader = new ByteReader(arrayBuffer);
@@ -270,7 +283,8 @@ export function decode(arrayBuffer : ArrayBuffer) : DecodeResult {
             return decodeGameCreated(byteReader, version);
         case FromServerMessageType.ActiveGamesMessage: 
             return decodeActiveGamesMessage(byteReader, version);
-            
+        case FromServerMessageType.TryCreateGameResultMessage:    
+            return decodeTryCreateGameResult(byteReader, version);
             
         default: throw new Error("Unknown type '" + type + "'");   
     }

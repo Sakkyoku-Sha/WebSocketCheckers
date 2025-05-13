@@ -13,7 +13,7 @@ public static class LocalGameSpace
     private const int GameSpaceCapacity = 1000;
     private static GameSlot[] _gameSpace = new GameSlot[GameSpaceCapacity];
     private static int _lastCreatedGameSlot = 0;
-    private static List<int> _activeGames = new(GameSpaceCapacity); 
+    private static readonly List<int> ActiveGames = new(GameSpaceCapacity); 
     
     public static void Initialize()
     {
@@ -26,10 +26,11 @@ public static class LocalGameSpace
     
     public static async Task<TryCreateGameResult> TryCreateNewGame(Guid playerId)
     {
+        var lastCreatedGameSlot = _lastCreatedGameSlot; //create a copy as to not cause a race on the original
         var i = _lastCreatedGameSlot;
         var newGameId = -1;
         var didCreateGame = false;
-        var creatingPlayer = new PlayerInfo(playerId, "Player");
+        var creatingPlayer = new PlayerInfo(playerId);
         
         do
         {
@@ -53,7 +54,7 @@ public static class LocalGameSpace
                     _lastCreatedGameSlot = i;
                     newGameId = i;
                     
-                    _activeGames.Add(newGameId);
+                    ActiveGames.Add(newGameId);
                 }
             }
             catch (Exception exception)
@@ -62,7 +63,7 @@ public static class LocalGameSpace
             }
             finally
             {
-                gameSlot.GameLock.Release();  // Release the lock
+                gameSlot.GameLock.Release();
             }
 
             i++;
@@ -71,12 +72,12 @@ public static class LocalGameSpace
                 i = 0;
             }
 
-        } while (i != _lastCreatedGameSlot && didCreateGame == false);
+        } while (i != lastCreatedGameSlot && didCreateGame == false);
 
         return new TryCreateGameResult(didCreateGame, newGameId, creatingPlayer);
     }
     
-    public static async Task TrySetPlayerInfo(int gameId, Guid playerId, string playerName, Func<GameInfo, PlayerInfo, Task> OnSuccess, Action onFail)
+    public static async Task TrySetPlayerInfo(int gameId, Guid playerId, Func<GameInfo, PlayerInfo, Task> onSuccess, Action onFail)
     {
         await LockExecuteState(gameId, async (gameInfo) =>
         {
@@ -90,16 +91,16 @@ public static class LocalGameSpace
             }
             if (gameInfo.Player1.IsDefined)
             {
-                gameInfo.Player1 = new PlayerInfo(playerId, playerName);
-                opponentInfo = gameInfo.Player2;
+                gameInfo.Player2 = new PlayerInfo(playerId);
+                opponentInfo = gameInfo.Player1;
             }
             else
             {
-                gameInfo.Player2 = new PlayerInfo(playerId, playerName);
-                opponentInfo = gameInfo.Player1;
+                gameInfo.Player1 = new PlayerInfo(playerId);
+                opponentInfo = gameInfo.Player2;
             }
             
-            await OnSuccess(gameInfo, opponentInfo);
+            await onSuccess(gameInfo, opponentInfo);
         });
     }
 
@@ -120,10 +121,10 @@ public static class LocalGameSpace
 
     public static GameMetaData[] GetActiveGames()
     {
-        var result = new GameMetaData[_activeGames.Count];
-        for (var i = 0; i < _activeGames.Count; i++)
+        var result = new GameMetaData[ActiveGames.Count];
+        for (var i = 0; i < ActiveGames.Count; i++)
         {
-            var gameId = _activeGames[i];
+            var gameId = ActiveGames[i];
             
             var gameInfo = _gameSpace[gameId].GameInfo; 
             result[i] = new GameMetaData(gameId, ref gameInfo.Player1, ref gameInfo.Player2);
@@ -232,16 +233,8 @@ public static class LocalGameSpace
 
         return result;
     }
-}
+} 
 
-public readonly struct TrySetPlayerResult(bool success, PlayerInfo? opponentInfo, bool player1)
-{
-    public readonly bool Success = success;
-    public readonly PlayerInfo? OpponentInfo = opponentInfo;
-    public readonly bool Player1 = player1;
-    
-    public static TrySetPlayerResult Failed = new(false, null, false);
-}
 public readonly struct TryCreateGameResult(bool didCreateGame, int gameId, PlayerInfo creatingPlayer)
 {
     public readonly bool DidCreateGame = didCreateGame; 
@@ -250,7 +243,7 @@ public readonly struct TryCreateGameResult(bool didCreateGame, int gameId, Playe
 
 public struct GameMetaData(int gameId, ref PlayerInfo player1, ref PlayerInfo player2)
 {
-    public PlayerInfo  Player1 = player1;
+    public PlayerInfo Player1 = player1;
     public PlayerInfo Player2 = player2;
     public readonly int GameId = gameId; 
 }

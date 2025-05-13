@@ -15,6 +15,7 @@ public enum ToClientMessageType : ushort
     TryJoinGameResultMessage = 4,
     GameCreatedMessage = 5,
     ActiveGamesMessage = 6,
+    TryCreateGameResultMessage = 7,
 }
 
 public interface IByteWriter
@@ -122,5 +123,10 @@ public static class WebSocketWriter
     {
         var writer = new GameMetaDataWriter(activeGames);
         await RentWriteSendAsync(sourceSession, writer);
+    }
+    public static async Task WriteTryCreateGameResult(UserSession session, bool resultDidCreateGame, int createdGameGameId)
+    {
+        var writer = new TryCreateGameResultWriter(resultDidCreateGame ? createdGameGameId : -1);
+        await RentWriteSendAsync(session, writer);
     }
 }

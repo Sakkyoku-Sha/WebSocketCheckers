@@ -19,7 +19,7 @@ import {
     NewMoveMessage,
     PlayerJoinedMessage,
     SessionStartMessage,
-    TryJoinGameResult
+    TryJoinGameResult, TryCreateGameResultMessage
 } from "@/app/WebSocket/Decoding";
 import Subscriptions from "@/app/Events/Events";
 
@@ -103,7 +103,7 @@ export default function Home() {
         case FromServerMessageType.TryJoinGameResultMessage:
             const tryJoinGameResult = (resultingMessage as TryJoinGameResult);
             if(tryJoinGameResult.gameInfo !== null) {
-                onGameInfoMessage(tryJoinGameResult.gameInfo!)
+                onGameInfoMessage(tryJoinGameResult.gameInfo)
             }
             break;
     
@@ -120,7 +120,14 @@ export default function Home() {
         case FromServerMessageType.ActiveGamesMessage: 
             const activeGames = (resultingMessage as ActiveGamesMessage); 
             Subscriptions.activeGamesMessageEvent.emit(activeGames); 
-            break; 
+            break;
+            
+        case FromServerMessageType.TryCreateGameResultMessage:    
+            const tryCreateGameResult = (resultingMessage as TryCreateGameResultMessage);
+            if(tryCreateGameResult.gameId >= 0) {
+                gameId.current = tryCreateGameResult.gameId;
+            }
+            break;
             
         default:
             console.error("Unknown message type:", resultingMessage?.type);
@@ -210,5 +217,3 @@ export default function Home() {
       </div>
   );
 }
-
-const moveByteSize = 11;  //FromIndex = 1, ToIndex = 1, Promoted = 1, Captured = 8

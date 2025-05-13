@@ -40,7 +40,7 @@ public static class FromClientMessageHandler
     {
         if (session.IsInGame) { return; }
         
-        await LocalGameSpace.TrySetPlayerInfo(request.GameId, request.PlayerId, "",
+        await LocalGameSpace.TrySetPlayerInfo(request.GameId, request.PlayerId,
             OnSuccessfullyJoinedGame(session), 
             OnFailedToJoinGame(session));
     }
@@ -75,6 +75,8 @@ public static class FromClientMessageHandler
         }
         
         var result = await LocalGameSpace.TryCreateNewGame(request.PlayerId);
+        await WebSocketWriter.WriteTryCreateGameResult(session, result.DidCreateGame, result.CreatedGame.GameId);
+        
         if (result.DidCreateGame)
         {
             session.GameId = result.CreatedGame.GameId;
