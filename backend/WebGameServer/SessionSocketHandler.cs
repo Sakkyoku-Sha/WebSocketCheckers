@@ -1,6 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Net.WebSockets;
-using WebGameServer.State;
+
 using WebGameServer.WebSockets.FromClientMessages;
 using WebGameServer.WebSockets.Writers;
 
@@ -11,6 +11,7 @@ public static class SessionSocketHandler
     private const int UserTimeout = 30; //30s timeouts. 
     private static readonly ConcurrentDictionary<Guid, UserSession> SessionsMap = new();
     private static readonly ConcurrentDictionary<Guid, UserSession> IdentifiedPlayerSessions = new();
+
     public static async Task AddSocketAsync(WebSocket socket)
     {
         var sessionId = Guid.NewGuid();
@@ -92,16 +93,14 @@ public static class SessionSocketHandler
         return sessions;
     }
     
-    public static UserSession GetSessionForUserId(ref PlayerInfo resultOpponentInfo)
+    public static UserSession GetSessionForUserId(Guid userId)
     {
-        if(IdentifiedPlayerSessions.TryGetValue(resultOpponentInfo.PlayerId, out var session))
+        if(IdentifiedPlayerSessions.TryGetValue(userId, out var session))
         {
             return session;
         }
-        else
-        {
-            throw new Exception("FAILED TO RETRIEVE SESSION FOR USER " + resultOpponentInfo.PlayerId);
-        }
+
+        throw new Exception("FAILED TO RETRIEVE SESSION FOR USER " + userId);
     }
 
     public static void SetPlayerSession(UserSession session, Guid messagePlayerId)
@@ -126,5 +125,9 @@ public static class SessionSocketHandler
         {
             IdentifiedPlayerSessions.TryAdd(messagePlayerId, session);
         }
+    }
+    public static UserSession[] AllUserSessions()
+    {
+        return SessionsMap.Values.ToArray();
     }
 }

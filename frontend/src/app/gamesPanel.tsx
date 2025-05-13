@@ -1,7 +1,7 @@
 "use client";
 import React, {useEffect, useState} from 'react';
 import Subscriptions from "@/app/Events/Events";
-import {ActiveGamesMessage, GameMetaData} from "@/app/WebSocket/Decoding";
+import {ActiveGamesMessage, GameCreatedMessage, GameMetaData} from "@/app/WebSocket/Decoding";
 
 export default function GamesPanel(props : {
     onCreateGameClick : () => void;
@@ -15,14 +15,27 @@ export default function GamesPanel(props : {
         setActiveGames(activeGamesMessage.activeGames);
     };
     
+    const onGameCreated = (gameCreatedMessage: GameCreatedMessage) => {
+        setActiveGames((prevActiveGames) => {
+            if (prevActiveGames === undefined) {
+                return [gameCreatedMessage.GameMetaData];
+            } else {
+                return [...prevActiveGames, gameCreatedMessage.GameMetaData];
+            }
+        });
+    }
+    
     useEffect(() => {
         
       Subscriptions.activeGamesMessageEvent.subscribe(onUpdateActiveGames);
+      Subscriptions.gameCreatedEvent.subscribe(onGameCreated);
+      
       return () => {
           Subscriptions.activeGamesMessageEvent.unsubscribe(onUpdateActiveGames);
+          Subscriptions.gameCreatedEvent.unsubscribe(onGameCreated);
       }
       
-    }, [])
+    }, []);
     
     const createGame = () => { 
         props.onCreateGameClick();

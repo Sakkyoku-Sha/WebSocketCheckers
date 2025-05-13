@@ -7,7 +7,7 @@ export enum FromServerMessageType
     NewMoveMessage = 2,
     InitialServerMessage = 3,
     TryJoinGameResultMessage = 4,
-    CreateGameResultMessage = 5,
+    GameCreatedMessage = 5,
     ActiveGamesMessage = 6,
 }
 
@@ -56,8 +56,8 @@ export interface GameInfo {
     forcedMoves : ForcedMove[]; 
 }
 
-export interface CreateGameResultMessage extends WebSocketMessage {
-    gameId : number
+export interface GameCreatedMessage extends WebSocketMessage {
+    GameMetaData : GameMetaData
 }
 export interface GameMetaData{
     gameId : number,
@@ -80,7 +80,7 @@ type DecodeResult = WebSocketMessage |
                     NewMoveMessage |    
                     InitialServerMessage |
                     TryJoinGameResult |
-                    CreateGameResultMessage | 
+                    GameCreatedMessage | 
                     ActiveGamesMessage;
 
 function decodeSessionStartMessage(byteReader: ByteReader, version: number) : SessionStartMessage {
@@ -188,11 +188,13 @@ function decodeTryJoinGameResult(byteReader: ByteReader, version: number) : TryJ
 }
 
 
-function decodeCreateGameResult(byteReader: ByteReader, version: number) : CreateGameResultMessage {
+function decodeGameCreated(byteReader: ByteReader, version: number) : GameCreatedMessage {
+
+    const gameMetaData = decodeGameMetaData(byteReader);
     return {
-        type : FromServerMessageType.CreateGameResultMessage,
+        type : FromServerMessageType.GameCreatedMessage,
         version : version,
-        gameId : byteReader.readInt32(),
+        GameMetaData : gameMetaData
     };
 }
 
@@ -200,31 +202,35 @@ function decodeActiveGamesMessage(byteReader: ByteReader, version: number) : Act
     return {
         type: FromServerMessageType.ActiveGamesMessage,
         version: version,
-        activeGames: decodeGameMetaData(byteReader),
+        activeGames: decodeGamesMetaData(byteReader),
     }
 }
-function decodeGameMetaData(byteReader: ByteReader) : GameMetaData[] {
+function decodeGamesMetaData(byteReader: ByteReader) : GameMetaData[] {
     
     let activeGamesLength = byteReader.readUint16();
     let activeGames = Array<GameMetaData>(activeGamesLength);
     
     for(let i = 0; i < activeGamesLength; i++){
-        const gameId = byteReader.readInt32();
-        const player1Name = byteReader.readLengthPrefixedStringUTF16LE();
-        const player2Name = byteReader.readLengthPrefixedStringUTF16LE();
-        activeGames[i] = {
-            gameId : gameId,
-            player1Name : player1Name,
-            player2Name : player2Name
-        }
+        activeGames[i] = decodeGameMetaData(byteReader);
     }
     
     return activeGames;
 }
 
+function decodeGameMetaData(byteReader: ByteReader) : GameMetaData {
+    const gameId = byteReader.readInt32();
+    const player1Name = byteReader.readLengthPrefixedStringUTF16LE();
+    const player2Name = byteReader.readLengthPrefixedStringUTF16LE();
+    return  {
+        gameId : gameId,
+        player1Name : player1Name,
+        player2Name : player2Name
+    }
+}
+
 function decodeInitialServerMessage(byteReader: ByteReader, version: number): DecodeResult {
     
-    const activeGames = decodeGameMetaData(byteReader);
+    const activeGames = decodeGamesMetaData(byteReader);
 
     let gameInfo : GameInfo | null = null;
     let wasInGame = byteReader.readUint8(); 
@@ -260,8 +266,8 @@ export function decode(arrayBuffer : ArrayBuffer) : DecodeResult {
             return decodeInitialServerMessage(byteReader, version);
         case FromServerMessageType.TryJoinGameResultMessage:
             return decodeTryJoinGameResult(byteReader, version);
-        case FromServerMessageType.CreateGameResultMessage:
-            return decodeCreateGameResult(byteReader, version);
+        case FromServerMessageType.GameCreatedMessage:
+            return decodeGameCreated(byteReader, version);
         case FromServerMessageType.ActiveGamesMessage: 
             return decodeActiveGamesMessage(byteReader, version);
             

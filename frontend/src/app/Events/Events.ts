@@ -1,7 +1,7 @@
 ﻿import {
     ActiveGamesMessage,
-    CreateGameResultMessage,
-    GameInfoMessage,
+    GameCreatedMessage,
+    InitialServerMessage,
     PlayerJoinedMessage,
     SessionStartMessage,
     TryJoinGameResult
@@ -28,15 +28,15 @@ class EventEmitter<T> {
 }
 
 const sessionStartEmitter = new EventEmitter<SessionStartMessage>();
-const createGameResultEmitter = new EventEmitter<CreateGameResultMessage>();
-const gameInfoEmitter = new EventEmitter<GameInfoMessage>();
+const gameCreatedEmitter = new EventEmitter<GameCreatedMessage>();
+const gameInfoEmitter = new EventEmitter<InitialServerMessage>();
 const playerJoinedEmitter = new EventEmitter<PlayerJoinedMessage>();
 const tryJoinGameResultEmitter = new EventEmitter<TryJoinGameResult>();
 const activeGamesMessageEmitter = new EventEmitter<ActiveGamesMessage>();
 
 const Subscriptions = {
     sessionStartMessageEvent : sessionStartEmitter,
-    createGameResultEvent : createGameResultEmitter,
+    gameCreatedEvent : gameCreatedEmitter,
     gameInfoEvent : gameInfoEmitter,
     playerJoinedEvent : playerJoinedEmitter,
     tryJoinGameResultEvent : tryJoinGameResultEmitter,

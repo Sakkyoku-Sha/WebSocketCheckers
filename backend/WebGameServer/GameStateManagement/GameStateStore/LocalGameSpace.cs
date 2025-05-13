@@ -29,6 +29,7 @@ public static class LocalGameSpace
         var i = _lastCreatedGameSlot;
         var newGameId = -1;
         var didCreateGame = false;
+        var creatingPlayer = new PlayerInfo(playerId, "Player");
         
         do
         {
@@ -46,7 +47,8 @@ public static class LocalGameSpace
                 {
                     didCreateGame = true;
                     gameSlot.GameInfo.Reset();
-                    gameSlot.GameInfo.Player1 = new PlayerInfo(playerId, "Player 1");
+                    gameSlot.GameInfo.Player1 = creatingPlayer;
+                    gameSlot.GameInfo.Player2 = PlayerInfo.Empty;
                     gameSlot.GameInfo.Status = GameStatus.WaitingForPlayers;
                     _lastCreatedGameSlot = i;
                     newGameId = i;
@@ -71,7 +73,7 @@ public static class LocalGameSpace
 
         } while (i != _lastCreatedGameSlot && didCreateGame == false);
 
-        return new TryCreateGameResult(newGameId);
+        return new TryCreateGameResult(didCreateGame, newGameId, creatingPlayer);
     }
     
     public static async Task TrySetPlayerInfo(int gameId, Guid playerId, string playerName, Func<GameInfo, PlayerInfo, Task> OnSuccess, Action onFail)
@@ -240,9 +242,10 @@ public readonly struct TrySetPlayerResult(bool success, PlayerInfo? opponentInfo
     
     public static TrySetPlayerResult Failed = new(false, null, false);
 }
-public readonly struct TryCreateGameResult(int gameId)
+public readonly struct TryCreateGameResult(bool didCreateGame, int gameId, PlayerInfo creatingPlayer)
 {
-    public readonly int GameId = gameId;
+    public readonly bool DidCreateGame = didCreateGame; 
+    public readonly GameMetaData CreatedGame = new GameMetaData(gameId, ref creatingPlayer, ref PlayerInfo.Empty);
 }
 
 public struct GameMetaData(int gameId, ref PlayerInfo player1, ref PlayerInfo player2)

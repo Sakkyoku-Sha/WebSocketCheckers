@@ -12,7 +12,7 @@ import GameHistory from "./gameHistory";
 import GamesPanel from "./gamesPanel";
 import {
     ActiveGamesMessage,
-    CreateGameResultMessage,
+    GameCreatedMessage,
     decode, ForcedMove,
     FromServerMessageType, GameInfo,
     InitialServerMessage,
@@ -105,15 +105,6 @@ export default function Home() {
             if(tryJoinGameResult.gameInfo !== null) {
                 onGameInfoMessage(tryJoinGameResult.gameInfo!)
             }
-            
-            //Clear Games since we are in one. 
-            Subscriptions.activeGamesMessageEvent.emit(
-                {
-                    activeGames : [], 
-                    type : FromServerMessageType.TryJoinGameResultMessage, 
-                    version : 1
-                });
-            
             break;
     
         case FromServerMessageType.PlayerJoined:
@@ -121,11 +112,9 @@ export default function Home() {
             console.log("Player joined:", playerName);
             break;
         
-        case FromServerMessageType.CreateGameResultMessage:
-            const resultId = (resultingMessage as CreateGameResultMessage).gameId;
-            if(resultId !== null && resultId >= 0) {
-                gameId.current = resultId;
-            }
+        case FromServerMessageType.GameCreatedMessage:
+            const gameCreatedMessage = (resultingMessage as GameCreatedMessage);
+            Subscriptions.gameCreatedEvent.emit(gameCreatedMessage);
             break;
             
         case FromServerMessageType.ActiveGamesMessage: 

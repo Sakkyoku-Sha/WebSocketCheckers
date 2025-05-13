@@ -2,7 +2,7 @@
 using WebGameServer.State;
 using WebGameServer.WebSockets.Writers;
 
-namespace WebGameServer.WebSockets.FromClientMessages;
+namespace WebGameServer.WebSockets;
 
 public static class FromClientMessageHandler
 {
@@ -54,7 +54,7 @@ public static class FromClientMessageHandler
 
             if (opponentInfo.IsDefined)
             {
-                var opponentSocket = SessionSocketHandler.GetSessionForUserId(ref opponentInfo);
+                var opponentSocket = SessionSocketHandler.GetSessionForUserId(opponentInfo.PlayerId);
                 _ = WebSocketWriter.WriteOtherPlayerJoinedAsync([opponentSocket], opponentInfo);
             }
         };
@@ -75,9 +75,11 @@ public static class FromClientMessageHandler
         }
         
         var result = await LocalGameSpace.TryCreateNewGame(request.PlayerId);
-        session.GameId = result.GameId; 
-        
-        await WebSocketWriter.WriteTryGameCreateResult(session, result.GameId);
+        if (result.DidCreateGame)
+        {
+            session.GameId = result.CreatedGame.GameId;
+            await WebSocketWriter.WriteTryGameCreateResult(SessionSocketHandler.AllUserSessions(), result.CreatedGame);
+        }
     }
 
     
