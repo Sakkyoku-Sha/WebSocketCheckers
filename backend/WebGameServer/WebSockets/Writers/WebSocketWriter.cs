@@ -13,7 +13,7 @@ public enum ToClientMessageType : ushort
     NewMoveMessage = 2, 
     InitialServerMessage = 3,
     TryJoinGameResultMessage = 4,
-    GameCreatedMessage = 5,
+    GameCreatedOrUpdatedMessage = 5,
     ActiveGamesMessage = 6,
     TryCreateGameResultMessage = 7,
 }
@@ -114,9 +114,9 @@ public static class WebSocketWriter
         var writer = new JoinGameResultWriter(tryJoinGameResult, gameInfo);
         await RentWriteSendAsync(session, writer);
     }
-    public static async Task WriteTryGameCreateResult(UserSession[] session, GameMetaData createdGame)
+    public static async Task WriteGameCreatedOrUpdated(UserSession[] session, GameMetaData createdGame)
     {
-        var writer = new GameCreatedWriter(createdGame);
+        var writer = new GameCreatedOrUpdatedWriter(createdGame);
         await RentWriteSendAsync(session, writer);
     }
     public static async Task WriteActiveGames(UserSession sourceSession, GameMetaData[] activeGames)

@@ -57,6 +57,10 @@ public static class FromClientMessageHandler
                 var opponentSocket = SessionSocketHandler.GetSessionForUserId(opponentInfo.PlayerId);
                 _ = WebSocketWriter.WriteOtherPlayerJoinedAsync([opponentSocket], opponentInfo);
             }
+            
+            //For Now Notify all users that a game has been joined (updated) in this case for their 
+            //game browser. This is heavy; but we won't have users to matter for a while. 
+            _ = WebSocketWriter.WriteGameCreatedOrUpdated(SessionSocketHandler.AllUserSessions(), gameInfo.SnapShot());  
         };
     }
     private static Action OnFailedToJoinGame(UserSession session)
@@ -80,7 +84,7 @@ public static class FromClientMessageHandler
         if (result.DidCreateGame)
         {
             session.GameId = result.CreatedGame.GameId;
-            await WebSocketWriter.WriteTryGameCreateResult(SessionSocketHandler.AllUserSessions(), result.CreatedGame);
+            _ = WebSocketWriter.WriteGameCreatedOrUpdated(SessionSocketHandler.AllUserSessions(), result.CreatedGame);
         }
     }
 

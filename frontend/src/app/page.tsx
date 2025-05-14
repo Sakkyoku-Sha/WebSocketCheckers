@@ -12,7 +12,7 @@ import GameHistory from "./gameHistory";
 import GamesPanel from "./gamesPanel";
 import {
     ActiveGamesMessage,
-    GameCreatedMessage,
+    GameCreatedOrUpdatedMessage,
     decode, ForcedMove,
     FromServerMessageType, GameInfo,
     InitialServerMessage,
@@ -112,9 +112,9 @@ export default function Home() {
             console.log("Player joined:", playerName);
             break;
         
-        case FromServerMessageType.GameCreatedMessage:
-            const gameCreatedMessage = (resultingMessage as GameCreatedMessage);
-            Subscriptions.gameCreatedEvent.emit(gameCreatedMessage);
+        case FromServerMessageType.GameCreatedOrUpdatedMessage:
+            const gameCreatedMessage = (resultingMessage as GameCreatedOrUpdatedMessage);
+            Subscriptions.gameCreatedOrUpdatedEvent.emit(gameCreatedMessage);
             break;
             
         case FromServerMessageType.ActiveGamesMessage: 

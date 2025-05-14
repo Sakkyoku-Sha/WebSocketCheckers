@@ -9,13 +9,13 @@ namespace WebGameServerTests;
 public class MessageWriterTests
 {
     [Test]
-    public void CreateGameResultsWriter()
+    public void GameCreatedOrUpdatedWriter()
     {
         var buffer = new byte[1024];
         var byteWriter = new ByteWriter(buffer);
         
         var player1 = new PlayerInfo(Guid.NewGuid(), "Player1");
-        var writer = new GameCreatedWriter(new GameMetaData(1, ref player1, ref PlayerInfo.Empty));
+        var writer = new GameCreatedOrUpdatedWriter(new GameMetaData(1, ref player1, ref PlayerInfo.Empty));
         writer.WriteBytes(ref byteWriter);
         
         Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.BytesWritten));     

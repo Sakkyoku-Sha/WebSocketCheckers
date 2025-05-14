@@ -1,4 +1,5 @@
 ﻿using System.Runtime.InteropServices;
+using WebGameServer.GameStateManagement.GameStateStore;
 
 namespace WebGameServer.State;
 
@@ -42,6 +43,11 @@ public class GameInfo
     {
         GameState = new GameState(true); 
         GameId = gameId < 0 ? throw new ArgumentOutOfRangeException(nameof(gameId)) : gameId;
+    }
+    
+    public GameMetaData SnapShot()
+    {
+        return new GameMetaData(GameId, ref Player1, ref Player2);
     }
 
     public void AddHistory(CheckersMove move)

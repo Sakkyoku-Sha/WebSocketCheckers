@@ -32,6 +32,7 @@ public static class LocalGameSpace
         var didCreateGame = false;
         var creatingPlayer = new PlayerInfo(playerId);
         
+        GameMetaData createdGameMetaData = default;
         do
         {
             var gameSlot = _gameSpace[i];
@@ -55,6 +56,8 @@ public static class LocalGameSpace
                     newGameId = i;
                     
                     ActiveGames.Add(newGameId);
+
+                    createdGameMetaData = gameSlot.GameInfo.SnapShot();
                 }
             }
             catch (Exception exception)
@@ -74,7 +77,7 @@ public static class LocalGameSpace
 
         } while (i != lastCreatedGameSlot && didCreateGame == false);
 
-        return new TryCreateGameResult(didCreateGame, newGameId, creatingPlayer);
+        return new TryCreateGameResult(didCreateGame, createdGameMetaData);
     }
     
     public static async Task TrySetPlayerInfo(int gameId, Guid playerId, Func<GameInfo, PlayerInfo, Task> onSuccess, Action onFail)
@@ -235,10 +238,10 @@ public static class LocalGameSpace
     }
 } 
 
-public readonly struct TryCreateGameResult(bool didCreateGame, int gameId, PlayerInfo creatingPlayer)
+public readonly struct TryCreateGameResult(bool didCreateGame, GameMetaData snapShot)
 {
-    public readonly bool DidCreateGame = didCreateGame; 
-    public readonly GameMetaData CreatedGame = new GameMetaData(gameId, ref creatingPlayer, ref PlayerInfo.Empty);
+    public readonly bool DidCreateGame = didCreateGame;
+    public readonly GameMetaData CreatedGame = snapShot;
 }
 
 public struct GameMetaData(int gameId, ref PlayerInfo player1, ref PlayerInfo player2)

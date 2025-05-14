@@ -1,7 +1,7 @@
 "use client";
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import Subscriptions from "@/app/Events/Events";
-import {ActiveGamesMessage, GameCreatedMessage, GameMetaData} from "@/app/WebSocket/Decoding";
+import {ActiveGamesMessage, GameCreatedOrUpdatedMessage, GameMetaData} from "@/app/WebSocket/Decoding";
 
 export default function GamesPanel(props : {
     onCreateGameClick : () => void;
@@ -9,30 +9,42 @@ export default function GamesPanel(props : {
     onGameClicked : (gameId : number) => void;
 }){
     
-    const [activeGames, setActiveGames] = useState<GameMetaData[]>();
+    const cardUpdaters = useRef<Map<number, (gameMetaData: GameMetaData) => void>>(new Map());
+    const activeGames= useRef<GameMetaData[]>([]);
+    const [, forceUpdate] = useState(0);
     
     const onUpdateActiveGames = (activeGamesMessage: ActiveGamesMessage) => {
-        setActiveGames(activeGamesMessage.activeGames);
+        //Entire overwrite of the active games.
+        activeGames.current = activeGamesMessage.activeGames;
+        forceUpdate((prev) => prev + 1);
     };
     
-    const onGameCreated = (gameCreatedMessage: GameCreatedMessage) => {
-        setActiveGames((prevActiveGames) => {
-            if (prevActiveGames === undefined) {
-                return [gameCreatedMessage.GameMetaData];
-            } else {
-                return [...prevActiveGames, gameCreatedMessage.GameMetaData];
+    const onGameCreatedOrUpdated = (gameCreatedMessage: GameCreatedOrUpdatedMessage) => {
+        
+        const gameMetaData = gameCreatedMessage.GameMetaData;
+        if(cardUpdaters.current.has(gameMetaData.gameId)) {
+            
+            //Only update the card if it already exists.
+            const updater = cardUpdaters.current.get(gameMetaData.gameId);
+            if(updater !== undefined) {
+                updater(gameMetaData);
             }
-        });
+        }
+        else{
+            //Only re-render the entire list if a new element is added. 
+            activeGames.current.push(gameMetaData);
+            forceUpdate((prev) => prev + 1);
+        }
     }
     
     useEffect(() => {
         
       Subscriptions.activeGamesMessageEvent.subscribe(onUpdateActiveGames);
-      Subscriptions.gameCreatedEvent.subscribe(onGameCreated);
+      Subscriptions.gameCreatedOrUpdatedEvent.subscribe(onGameCreatedOrUpdated);
       
       return () => {
           Subscriptions.activeGamesMessageEvent.unsubscribe(onUpdateActiveGames);
-          Subscriptions.gameCreatedEvent.unsubscribe(onGameCreated);
+          Subscriptions.gameCreatedOrUpdatedEvent.unsubscribe(onGameCreatedOrUpdated);
       }
       
     }, []);
@@ -40,21 +52,19 @@ export default function GamesPanel(props : {
     const createGame = () => { 
         props.onCreateGameClick();
     }
-
-    const toDisplay = activeGames?.map((game: GameMetaData) => {
-        return (
-            <div key={game.gameId} className="game-card" onClick={() => props.onGameClicked(game.gameId)}>
-                <div className="game-id">Game ID: {game.gameId}</div>
-                <div className="players">
-                    <div className="player">
-                        <span className="label">Player 1:</span> {game.player1Name}
-                    </div>
-                    <div className="player">
-                        <span className="label">Player 2:</span> {game.player2Name}
-                    </div>
-                </div>
-            </div>
-        );
+    
+    const registerUpdater = (gameId: number, updateFn: (gameMetaData: GameMetaData) => void) => {
+        if (cardUpdaters.current.has(gameId)) {
+            cardUpdaters.current.delete(gameId);
+        }
+        cardUpdaters.current.set(gameId, updateFn);
+    }
+    
+    const toDisplay = activeGames.current.map(gameMetaData => {
+        return <GameCard key = {"game" + gameMetaData.gameId}
+            initialGameMetaData={gameMetaData} 
+            onClick={() => props.onGameClicked(gameMetaData.gameId)} 
+            registerUpdater={registerUpdater}/>
     });
 
     return (
@@ -69,6 +79,42 @@ export default function GamesPanel(props : {
             </div>
             <div className="games-list">
                 {toDisplay}
+            </div>
+        </div>
+    );
+}
+
+interface GameCardProps {
+    initialGameMetaData : GameMetaData;
+    onClick: (gameId : number) => void;
+    registerUpdater: (gameId : number, updateFn : (gameMetaData : GameMetaData) => void) => void,
+}
+
+function GameCard(props: GameCardProps) {
+    
+    const gameId = props.initialGameMetaData.gameId;
+    const [player1Name, setPlayer1Name] = useState(props.initialGameMetaData.player1Name);
+    const [player2Name, setPlayer2Name] = useState(props.initialGameMetaData.player2Name);
+    
+    const onGameUpdated = (gameMetaData: GameMetaData) => {
+        setPlayer1Name(gameMetaData.player1Name);
+        setPlayer2Name(gameMetaData.player2Name);
+    }
+    
+    useEffect(() => {
+        props.registerUpdater(gameId, onGameUpdated);
+    }, [gameId]);
+    
+    return (
+        <div key={gameId} className="game-card" onClick={() => props.onClick(gameId)}>
+            <div className="game-id">Game ID: {gameId}</div>
+            <div className="players">
+                <div className="player">
+                    <span className="label">Player 1:</span> {player1Name}
+                </div>
+                <div className="player">
+                    <span className="label">Player 2:</span> {player2Name}
+                </div>
             </div>
         </div>
     );
