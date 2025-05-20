@@ -1,6 +1,5 @@
-import {GameInfo} from "@/app/WebSocket/Decoding";
+import {GameInfo, CheckersMove} from "@/WebSocket/Decoding";
 import { RefObject } from "react";
-import {CheckersMove} from "@/home";
 
 export interface GameHistoryProps {
     currentGame: RefObject<GameInfo | null>

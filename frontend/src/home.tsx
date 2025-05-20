@@ -1,58 +1,26 @@
 import React, {useEffect, useRef, useState} from "react";
-import {
-    encodeActiveGamesMessage,
-    encodeCreateGameMessage,
-    encodeIdentifyUserMessage,
-    encodeTryJoinGameMessage,
-    encodeTryMakeMoveMessage
-} from "./WebSocket/Encode";
-
 import GameBoard from "./gameboard";
 import GameHistory from "./gameHistory";
 import GamesPanel from "./gamesPanel";
 
 import {
-    ActiveGamesMessage,
-    decode,
-    GameCreatedOrUpdatedMessage,
     GameInfo,
     GameStatus,
     InitialStateMessage,
     PlayerJoinedMessage,
-    SessionStartMessage,
     TryCreateGameResultMessage,
     TryJoinGameResult,
-    FromServerMessageType, NewMoveMessage, GameStatusChangedMessage
+    NewMoveMessage, GameStatusChangedMessage, DrawRequestRejectedMessage, DrawRequestMessage
 
 } from "@/WebSocket/Decoding";
 
-import Subscriptions from "@/Events/Events";
+import WebSocketEvents from "@/WebSocket/WebSocketEvents";
+import {WebSocketSend} from "@/WebSocket/WebSocketConnect";
 
-export interface CheckersMove{
-  fromIndex: number;      
-  toIndex: number;        
-  promoted: boolean;     
-  capturedPieces: bigint; 
-}
-
-const ResolveUserId = () => {
-    const userId = localStorage.getItem("userId");
-    if (userId === null) {
-        const newUserId = crypto.randomUUID();
-        localStorage.setItem("userId", newUserId);
-        return newUserId;
-    }
-    return userId;
-}
 
 export default function Home() {
     
   const currentGame = useRef<GameInfo | null>(null);
-  
-  const wsRef = useRef<WebSocket | null>(null);
-  const sessionIdRef = useRef<string | null>(null);
-
-  const userId = useRef<string | null>(null);
   const [moveNumber, setMoveNumber] = useState<number>(-1);
   
   const onGameInfoMessage = (gameInfo : GameInfo) => {
@@ -60,154 +28,96 @@ export default function Home() {
       setMoveNumber(gameInfo.historyCount-1);
   }
   
-  const HandleWebSocketData = (byteData : ArrayBuffer) => {
-        
-    const resultingMessage = decode(byteData)
-
-    switch(resultingMessage.type) {
-        
-        case FromServerMessageType.SessionStartMessage:
-            sessionIdRef.current = (resultingMessage as SessionStartMessage).sessionId;
-            
-            //Send User Id to server.
-            const newUserId = ResolveUserId();
-            const toSend = encodeIdentifyUserMessage(newUserId);
-
-            userId.current = newUserId;
-            wsRef.current?.send(toSend);
-            
-            break;
-            
-        case FromServerMessageType.InitialStateMessage:
-            const gameInfoMessage = (resultingMessage as InitialStateMessage);
-            if(gameInfoMessage.gameInfo !== null) {
-                onGameInfoMessage(gameInfoMessage.gameInfo);
-            }
-            if(gameInfoMessage.activeGames.length > 0){
-                Subscriptions.activeGamesMessageEvent.emit({
-                    version : 1,
-                    type : FromServerMessageType.InitialStateMessage,
-                    activeGames: gameInfoMessage.activeGames
-                })
-            }
-          
-            break;
-            
-        case FromServerMessageType.TryJoinGameResponse:
-            const tryJoinGameResult = (resultingMessage as TryJoinGameResult);
-            if(tryJoinGameResult.gameInfo !== null) {
-                onGameInfoMessage(tryJoinGameResult.gameInfo)
-            }
-            break;
-        case FromServerMessageType.NewMove:
-            if(currentGame.current === null) return;
-            const newMoveMessage = resultingMessage as NewMoveMessage;
-            
-            currentGame.current.forcedMoves = newMoveMessage.forcedMovesInPosition;
-            currentGame.current.history.push(newMoveMessage.move);
-            setMoveNumber(currentGame.current.history.length - 1);
-            
-            break;
-        case FromServerMessageType.GameStatusChanged:
-            const gameStatusMessage = (resultingMessage as GameStatusChangedMessage); 
-            console.log("Game status changed: ", gameStatusMessage.gameStatus);
-            break;
-        case FromServerMessageType.DrawRequest:
-            console.log("Draw request received");
-            break;
-        case FromServerMessageType.DrawRequestRejected:
-            console.log("Sent draw request rejected");
-            break;
-
-        case FromServerMessageType.PlayerJoined:
-            const playerName = (resultingMessage as PlayerJoinedMessage).playerName;
-            console.log("Player joined:", playerName);
-            break;
-        
-        case FromServerMessageType.GameCreatedMessage:
-            const gameCreatedMessage = (resultingMessage as GameCreatedOrUpdatedMessage);
-            Subscriptions.gameCreatedOrUpdatedEvent.emit(gameCreatedMessage);
-            break;
-            
-        case FromServerMessageType.ActiveGamesResponse: 
-            const activeGames = (resultingMessage as ActiveGamesMessage); 
-            Subscriptions.activeGamesMessageEvent.emit(activeGames); 
-            break;
-            
-        case FromServerMessageType.TryCreateGameResponse:    
-            const tryCreateGameResult = (resultingMessage as TryCreateGameResultMessage);
-            if(tryCreateGameResult.gameId >= 0) {
-                currentGame.current = { //Probably should update the response here to send an empty GameInfo instead 
-                    gameId: tryCreateGameResult.gameId,
-                    gameName : "", 
-                    player1Name: "Me",
-                    player1Id: userId.current ?? "",
-                    player2Name: "",
-                    player2Id: "",
-                    forcedMoves: [],
-                    history: [],
-                    historyCount : 0,
-                    gameStatus : GameStatus.WaitingForPlayers,
-                }
-            }
-            break;
-            
-        default:
-            console.error("Unknown message type:", resultingMessage?.type);
-    }
+  const onInitialStateMessage = (initialStateMessage : InitialStateMessage) => {
+      if(initialStateMessage.gameInfo !== null) {
+          onGameInfoMessage(initialStateMessage.gameInfo);
+      }
   }
+  
+  const onTryJoinGameResponse = (tryJoinGameResult : TryJoinGameResult) => {
+      if(tryJoinGameResult.gameInfo !== null && tryJoinGameResult.didJoinGame) {
+          onGameInfoMessage(tryJoinGameResult.gameInfo)
+      }
+  }
+  
+  const onNewMoveMessage = (newMoveMessage : NewMoveMessage) => {
+      if(currentGame.current === null) return;
 
-    
+      currentGame.current.forcedMoves = newMoveMessage.forcedMovesInPosition;
+      currentGame.current.history.push(newMoveMessage.move);
+      setMoveNumber(currentGame.current.history.length - 1);
+  }
+  
+  const onGameStatusChanged = (gameStatusMessage : GameStatusChangedMessage) => {
+      console.log("Game status changed: ", gameStatusMessage.gameStatus);
+  }
+  
+  const onDrawRequest = (drawRequestMessage : DrawRequestMessage) => {
+      console.log("Draw request received");
+  }
+  
+  const onDrawRequestRejected = (drawRequestRejectedMessage : DrawRequestRejectedMessage) => {
+      console.log("Draw request rejected");
+  }
+  
+  const onPlayerJoined = (playerJoinedMessage : PlayerJoinedMessage) => {
+      console.log("Player joined: " + playerJoinedMessage.playerName);
+  }
+  
+  const onTryCreateGameResult = (tryCreateGameResult : TryCreateGameResultMessage) => {
+      if(tryCreateGameResult.gameId >= 0) {
+          currentGame.current = { //Probably should update the response here to send an empty GameInfo instead 
+              gameId: tryCreateGameResult.gameId,
+              gameName : "",
+              player1Name: "Me",
+              player1Id: "",
+              player2Name: "",
+              player2Id: "",
+              forcedMoves: [],
+              history: [],
+              historyCount : 0,
+              gameStatus : GameStatus.WaitingForPlayers,
+          }
+      }
+  }
+  
   useEffect(() => {
 
-      if (!wsRef.current) {
-          wsRef.current = new WebSocket("ws://localhost:5050/ws");
-          wsRef.current.binaryType = "arraybuffer";
-
-          wsRef.current.onopen = () => {
-              console.log("Connected to server");
-          };
-          wsRef.current.onclose = () => console.log("Disconnected from server");
-          wsRef.current.onerror = (error) => console.error("WebSocket error:", error);
-
-          wsRef.current.onmessage = (event) => {
-              HandleWebSocketData(event.data as ArrayBuffer);
-          };
-      }
-
-      return () => {
-          wsRef.current?.close();
-          wsRef.current = null;
-      };
+      WebSocketEvents.initialStateEvent.subscribe(onInitialStateMessage);
+      WebSocketEvents.tryJoinGameResultEvent.subscribe(onTryJoinGameResponse);
+      WebSocketEvents.newMoveEvent.subscribe(onNewMoveMessage);
+      WebSocketEvents.gameStatusChangedEvent.subscribe(onGameStatusChanged);
+      WebSocketEvents.drawRequestEvent.subscribe(onDrawRequest);
+      WebSocketEvents.drawRequestRejectedEvent.subscribe(onDrawRequestRejected);
+      WebSocketEvents.playerJoinedEvent.subscribe(onPlayerJoined);
+      WebSocketEvents.tryCreateGameResultEmitter.subscribe(onTryCreateGameResult);
       
+      return () => {
+            WebSocketEvents.initialStateEvent.unsubscribe(onInitialStateMessage);
+            WebSocketEvents.tryJoinGameResultEvent.unsubscribe(onTryJoinGameResponse);
+            WebSocketEvents.newMoveEvent.unsubscribe(onNewMoveMessage);
+            WebSocketEvents.gameStatusChangedEvent.unsubscribe(onGameStatusChanged);
+            WebSocketEvents.drawRequestEvent.unsubscribe(onDrawRequest);
+            WebSocketEvents.drawRequestRejectedEvent.unsubscribe(onDrawRequestRejected);
+            WebSocketEvents.playerJoinedEvent.unsubscribe(onPlayerJoined);
+      }
+       
   }, []);
 
     const CreateNewGame = ()=> {
-        if(!userId.current || !wsRef.current) return; 
-        
-        const createNewGameMessage = encodeCreateGameMessage();
-        wsRef.current.send(createNewGameMessage); 
+        WebSocketSend.tryCreateNewGame();
     }
     
     const RefreshActiveGames = () => {
-        if(!wsRef.current) return;
-
-        const createNewGameMessage = encodeActiveGamesMessage();
-        wsRef.current.send(createNewGameMessage);
+        WebSocketSend.refreshActiveGames();
     }; 
 
     const TryMakeMove = (fromIndex : number, toIndex : number) => {
-        if(!userId.current || currentGame.current === null || !wsRef.current) return;
-        
-        const tryMakeMoveMessage = encodeTryMakeMoveMessage(fromIndex, toIndex);
-        wsRef.current.send(tryMakeMoveMessage);
+        WebSocketSend.tryMakeMove(fromIndex, toIndex);
     }
     
     const TryJoinGame = (gameId : number) => {
-        if(!userId.current || !wsRef.current) return;
-        
-        const tryJoinGameMessage = encodeTryJoinGameMessage(gameId);
-        wsRef.current.send(tryJoinGameMessage);
+        WebSocketSend.tryJoinGame(gameId);
     }
     
     return (

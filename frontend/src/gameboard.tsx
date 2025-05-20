@@ -1,6 +1,5 @@
-import { MouseEventHandler, RefObject, useState, useRef, useMemo, JSX, Ref, useEffect } from 'react';
-import {CheckersMove} from './page';
-import {ForcedMove, GameInfo} from "@/app/WebSocket/Decoding";
+import { MouseEventHandler, RefObject, useState, useRef, useEffect } from 'react';
+import {ForcedMove, CheckersMove, GameInfo} from "@/WebSocket/Decoding";
 
 enum GameBoardSquare{
     EMPTY = 0,

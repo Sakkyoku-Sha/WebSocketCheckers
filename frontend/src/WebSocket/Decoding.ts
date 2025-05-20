@@ -1,4 +1,4 @@
-﻿import {ByteReader, CheckersMove} from "./ByteReader";
+﻿import {ByteReader} from "./ByteReader";
 
 export enum FromServerMessageType
 {
@@ -34,7 +34,12 @@ export enum GameStatus
     Player2Win = 5,
     Draw = 6,
 }
-
+export interface CheckersMove{
+    fromIndex: number;
+    toIndex: number;
+    promoted: boolean;
+    capturedPieces: bigint;
+}
 export interface WebSocketMessage {
     version : number,
     type: FromServerMessageType
@@ -67,7 +72,7 @@ export interface GameInfo {
     forcedMoves : ForcedMove[]; 
 }
 
-export interface GameCreatedOrUpdatedMessage extends WebSocketMessage {
+export interface GameCreatedMessage extends WebSocketMessage {
     GameMetaData : GameMetaData
 }
 export interface GameMetaData{
@@ -85,12 +90,12 @@ export interface InitialStateMessage extends WebSocketMessage {
     gameInfo : GameInfo | null,
 }
 
-type DecodeResult = WebSocketMessage | 
+export type DecodeResult = WebSocketMessage | 
                     SessionStartMessage |
                     PlayerJoinedMessage |
                     InitialStateMessage |
                     TryJoinGameResult |
-                    GameCreatedOrUpdatedMessage | 
+                    GameCreatedMessage | 
                     ActiveGamesMessage | 
                     TryCreateGameResultMessage |
                     NewMoveMessage | 
@@ -188,7 +193,7 @@ function decodeTryJoinGameResult(byteReader: ByteReader, version: number) : TryJ
     };
 }
 
-function decodeGameCreatedOrUpdated(byteReader: ByteReader, version: number) : GameCreatedOrUpdatedMessage {
+function decodeGameCreated(byteReader: ByteReader, version: number) : GameCreatedMessage {
 
     const gameMetaData = decodeGamesMetaData(byteReader);
     return {
@@ -330,7 +335,7 @@ export function decode(arrayBuffer : ArrayBuffer) : DecodeResult {
         case FromServerMessageType.TryJoinGameResponse:
             return decodeTryJoinGameResult(byteReader, version);
         case FromServerMessageType.GameCreatedMessage:
-            return decodeGameCreatedOrUpdated(byteReader, version);
+            return decodeGameCreated(byteReader, version);
         case FromServerMessageType.ActiveGamesResponse: 
             return decodeActiveGamesMessage(byteReader, version);
         case FromServerMessageType.TryCreateGameResponse:    

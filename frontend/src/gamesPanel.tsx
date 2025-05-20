@@ -1,6 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
-import Subscriptions from "@/Events/Events";
-import {ActiveGamesMessage, GameCreatedOrUpdatedMessage, GameMetaData} from "@/WebSocket/Decoding";
+import {ActiveGamesMessage, GameCreatedMessage, GameMetaData, InitialStateMessage} from "@/WebSocket/Decoding";
+import WebSocketEvents from "@/WebSocket/WebSocketEvents";
 
 export default function GamesPanel(props : {
     onCreateGameClick : () => void;
@@ -18,7 +18,7 @@ export default function GamesPanel(props : {
         forceUpdate((prev) => prev + 1);
     };
     
-    const onGameCreatedOrUpdated = (gameCreatedMessage: GameCreatedOrUpdatedMessage) => {
+    const onGameCreatedOrUpdated = (gameCreatedMessage: GameCreatedMessage) => {
         
         const gameMetaData = gameCreatedMessage.GameMetaData;
         if(cardUpdaters.current.has(gameMetaData.gameId)) {
@@ -36,14 +36,23 @@ export default function GamesPanel(props : {
         }
     }
     
+    const onInitialStateMessage = (initialStateMessage: InitialStateMessage) => {
+        if(initialStateMessage.activeGames !== null && initialStateMessage.activeGames.length > 0) {
+            activeGames.current = initialStateMessage.activeGames;
+            forceUpdate((prev) => prev + 1);
+        }
+    }
+    
     useEffect(() => {
         
-      Subscriptions.activeGamesMessageEvent.subscribe(onUpdateActiveGames);
-      Subscriptions.gameCreatedOrUpdatedEvent.subscribe(onGameCreatedOrUpdated);
+      WebSocketEvents.activeGamesMessageEvent.subscribe(onUpdateActiveGames);
+      WebSocketEvents.gameCreatedEvent.subscribe(onGameCreatedOrUpdated);
+      WebSocketEvents.initialStateEvent.subscribe(onInitialStateMessage);
       
       return () => {
-          Subscriptions.activeGamesMessageEvent.unsubscribe(onUpdateActiveGames);
-          Subscriptions.gameCreatedOrUpdatedEvent.unsubscribe(onGameCreatedOrUpdated);
+          WebSocketEvents.activeGamesMessageEvent.unsubscribe(onUpdateActiveGames);
+          WebSocketEvents.gameCreatedEvent.unsubscribe(onGameCreatedOrUpdated);
+          WebSocketEvents.initialStateEvent.subscribe(onInitialStateMessage);
       }
       
     }, []);

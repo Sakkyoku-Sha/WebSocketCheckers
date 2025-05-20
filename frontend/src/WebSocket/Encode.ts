@@ -136,13 +136,15 @@ export function encodeDrawRequestMessage() {
     )
 }
 
-export function encodeDrawRequestResponse() {
-    const payloadBytes = new Uint8Array();
+export function encodeDrawRequestResponse(accept: boolean) {
+    const buffer = new ArrayBuffer(1);
+    new DataView(buffer).setUint8(0, accept ? 1 : 0);
+
     return encodeWrapper(
         1,
         ToServerMessageType.DrawRequestResponse,
-        payloadBytes
-    )
+        new Uint8Array(buffer)
+    );
 }
 
 export function encodeSurrenderMessage() {
