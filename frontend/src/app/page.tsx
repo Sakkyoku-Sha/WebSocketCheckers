@@ -7,20 +7,26 @@ import {
     encodeTryJoinGameMessage,
     encodeTryMakeMoveMessage
 } from "./WebSocket/Encode";
+
 import GameBoard from "./gameboard";
 import GameHistory from "./gameHistory";
 import GamesPanel from "./gamesPanel";
+
 import {
     ActiveGamesMessage,
+    decode,
     GameCreatedOrUpdatedMessage,
-    decode, ForcedMove,
-    FromServerMessageType, GameInfo,
-    InitialServerMessage,
-    NewMoveMessage,
+    GameInfo,
+    GameStatus,
+    InitialStateMessage,
     PlayerJoinedMessage,
     SessionStartMessage,
-    TryJoinGameResult, TryCreateGameResultMessage
+    TryCreateGameResultMessage,
+    TryJoinGameResult,
+    FromServerMessageType, NewMoveMessage, GameStatusChangedMessage
+
 } from "@/app/WebSocket/Decoding";
+
 import Subscriptions from "@/app/Events/Events";
 
 export interface CheckersMove{
@@ -41,21 +47,18 @@ const ResolveUserId = () => {
 }
 
 export default function Home() {
+    
+  const currentGame = useRef<GameInfo | null>(null);
+  
+  const wsRef = useRef<WebSocket | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
 
   const userId = useRef<string | null>(null);
-  const gameId = useRef<number | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const moveHistory = useRef<CheckersMove[]>([]); 
-  const sessionIdRef = useRef<string | null>(null);
-  
-  const forcedMovesRef = useRef<ForcedMove[]>([]); //array of bitboard indices; 
   const [moveNumber, setMoveNumber] = useState<number>(-1);
   
   const onGameInfoMessage = (gameInfo : GameInfo) => {
-      gameId.current = gameInfo.gameId;
-      moveHistory.current = gameInfo.history; 
+      currentGame.current = gameInfo;
       setMoveNumber(gameInfo.historyCount-1);
-      forcedMovesRef.current = gameInfo.forcedMoves;
   }
   
   const HandleWebSocketData = (byteData : ArrayBuffer) => {
@@ -75,57 +78,84 @@ export default function Home() {
             wsRef.current?.send(toSend);
             
             break;
-        
-        case FromServerMessageType.NewMoveMessage:
-            let newMoveMessage = (resultingMessage as NewMoveMessage);
-            forcedMovesRef.current = newMoveMessage.forcedMovesInPosition;
             
-            moveHistory.current.push(newMoveMessage.move);
-            setMoveNumber(moveHistory.current.length - 1);
-       
-            break;
-            
-        case FromServerMessageType.InitialServerMessage:
-            const gameInfoMessage = (resultingMessage as InitialServerMessage);
+        case FromServerMessageType.InitialStateMessage:
+            const gameInfoMessage = (resultingMessage as InitialStateMessage);
             if(gameInfoMessage.gameInfo !== null) {
                 onGameInfoMessage(gameInfoMessage.gameInfo);
             }
             if(gameInfoMessage.activeGames.length > 0){
                 Subscriptions.activeGamesMessageEvent.emit({
                     version : 1,
-                    type : FromServerMessageType.InitialServerMessage,
+                    type : FromServerMessageType.InitialStateMessage,
                     activeGames: gameInfoMessage.activeGames
                 })
             }
           
             break;
             
-        case FromServerMessageType.TryJoinGameResultMessage:
+        case FromServerMessageType.TryJoinGameResponse:
             const tryJoinGameResult = (resultingMessage as TryJoinGameResult);
             if(tryJoinGameResult.gameInfo !== null) {
                 onGameInfoMessage(tryJoinGameResult.gameInfo)
             }
             break;
-    
+        case FromServerMessageType.NewMove:
+            if(currentGame.current === null) return;
+            const newMoveMessage = resultingMessage as NewMoveMessage;
+            
+            currentGame.current.forcedMoves = newMoveMessage.forcedMovesInPosition;
+            currentGame.current.history.push(newMoveMessage.move);
+
+            if(newMoveMessage.gameDidFinish) {
+                setMoveNumber(1);
+                currentGame.current.gameStatus = GameStatus.Player1Win;
+            }
+            else {
+                setMoveNumber(currentGame.current.history.length - 1);
+            }
+            break;
+        case FromServerMessageType.GameStatusChanged:
+            const gameStatusMessage = (resultingMessage as GameStatusChangedMessage); 
+            console.log("Game status changed: ", gameStatusMessage.gameStatus);
+            break;
+        case FromServerMessageType.DrawRequest:
+            console.log("Draw request received");
+            break;
+        case FromServerMessageType.DrawRequestRejected:
+            console.log("Sent draw request rejected");
+            break;
+
         case FromServerMessageType.PlayerJoined:
             const playerName = (resultingMessage as PlayerJoinedMessage).playerName;
             console.log("Player joined:", playerName);
             break;
         
-        case FromServerMessageType.GameCreatedOrUpdatedMessage:
+        case FromServerMessageType.GameCreatedMessage:
             const gameCreatedMessage = (resultingMessage as GameCreatedOrUpdatedMessage);
             Subscriptions.gameCreatedOrUpdatedEvent.emit(gameCreatedMessage);
             break;
             
-        case FromServerMessageType.ActiveGamesMessage: 
+        case FromServerMessageType.ActiveGamesResponse: 
             const activeGames = (resultingMessage as ActiveGamesMessage); 
             Subscriptions.activeGamesMessageEvent.emit(activeGames); 
             break;
             
-        case FromServerMessageType.TryCreateGameResultMessage:    
+        case FromServerMessageType.TryCreateGameResponse:    
             const tryCreateGameResult = (resultingMessage as TryCreateGameResultMessage);
             if(tryCreateGameResult.gameId >= 0) {
-                gameId.current = tryCreateGameResult.gameId;
+                currentGame.current = { //Probably should update the response here to send an empty GameInfo instead 
+                    gameId: tryCreateGameResult.gameId,
+                    gameName : "", 
+                    player1Name: "Me",
+                    player1Id: userId.current ?? "",
+                    player2Name: "",
+                    player2Id: "",
+                    forcedMoves: [],
+                    history: [],
+                    historyCount : 0,
+                    gameStatus : GameStatus.WaitingForPlayers,
+                }
             }
             break;
             
@@ -162,7 +192,7 @@ export default function Home() {
     const CreateNewGame = ()=> {
         if(!userId.current || !wsRef.current) return; 
         
-        const createNewGameMessage = encodeCreateGameMessage(userId.current);
+        const createNewGameMessage = encodeCreateGameMessage();
         wsRef.current.send(createNewGameMessage); 
     }
     
@@ -174,38 +204,37 @@ export default function Home() {
     }; 
 
     const TryMakeMove = (fromIndex : number, toIndex : number) => {
-        if(!userId.current || gameId.current === null || gameId.current < 0 || !wsRef.current) return;
+        if(!userId.current || currentGame.current === null || !wsRef.current) return;
         
-        const tryMakeMoveMessage = encodeTryMakeMoveMessage(userId.current, gameId.current, fromIndex, toIndex);
+        const tryMakeMoveMessage = encodeTryMakeMoveMessage(fromIndex, toIndex);
         wsRef.current.send(tryMakeMoveMessage);
     }
     
     const TryJoinGame = (gameId : number) => {
         if(!userId.current || !wsRef.current) return;
         
-        const tryJoinGameMessage = encodeTryJoinGameMessage(userId.current, gameId);
+        const tryJoinGameMessage = encodeTryJoinGameMessage(gameId);
         wsRef.current.send(tryJoinGameMessage);
     }
-
+    
     return (
       <div className="page">
         <div className="game-history-container">
           <div className="game-history-title">Game History</div> 
-          <GameHistory moveHistory={moveHistory} moveNumber={moveNumber} onMoveClick={(index) => setMoveNumber(index)}/>
+          <GameHistory currentGame={currentGame} moveNumber={moveNumber} onMoveClick={(index) => setMoveNumber(index)}/>
         </div>
         <div className="game-container">
-          <div className="player-two-info">
-            
+          <div className="player-two-info player-display-card">
+              <PlayerCard playerName={currentGame.current?.player2Name ?? "Waiting For Player"}/>
           </div>
           <div className="game-area">
             <GameBoard makeMove={TryMakeMove} 
-                       moveHistoryRef={moveHistory} 
-                       moveNumber={moveNumber}
-                       forcedMovesInPosition={forcedMovesRef}
-                       gameIdRef={gameId}/>
+                       currentGame={currentGame}
+                       moveNumber={moveNumber}/>
           </div>
-          <div className="player-one-info">
-
+           
+          <div className="player-one-info player-display-card">
+              <PlayerCard playerName={currentGame.current?.player1Name ?? "Waiting For Player"}/>
           </div>
         </div>
           <div className="games-panel-container">
@@ -216,4 +245,24 @@ export default function Home() {
           </div>
       </div>
   );
+}
+
+interface PlayerCardProps {
+    playerName : string,
+}
+function PlayerCard(props: PlayerCardProps) {
+    return (
+        <div
+            className={`player-card`}
+            tabIndex={0}
+        >
+            <div className="avatar" style={{ backgroundImage: `url()` }} />
+            <div className="info">
+                <span className="name">{props.playerName}</span>
+                <div className="status-bar">
+                    <div className="bar" style={{ width: `5%` }} />
+                </div>
+            </div>
+        </div>
+    );
 }

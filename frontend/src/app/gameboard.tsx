@@ -2,7 +2,7 @@
 import { MouseEventHandler, RefObject, useState, useRef, useMemo, JSX, Ref, useEffect } from 'react';
 import {CheckersMove} from './page';
 import {empty} from "@apollo/client";
-import {ForcedMove} from "@/app/WebSocket/Decoding";
+import {ForcedMove, GameInfo} from "@/app/WebSocket/Decoding";
 
 enum GameBoardSquare{
     EMPTY = 0,
@@ -20,17 +20,16 @@ export interface SquareToRender {
 }
 
 export interface GameBoardProps {
-    moveHistoryRef : RefObject<CheckersMove[]>
     moveNumber : number
-    gameIdRef : RefObject<number | null>
-    forcedMovesInPosition : RefObject<ForcedMove[]>
+    currentGame : RefObject<GameInfo | null>
     makeMove : (fromIndex : number, toIndex : number) => void;
 }
 
 export default function GameBoard(props: GameBoardProps) {
 
-    const forcedMoves = props.forcedMovesInPosition.current;
-    const moveHistory = props.moveHistoryRef;
+    const forcedMoves = props.currentGame.current?.forcedMoves ?? [];
+    const moveHistory = props.currentGame.current?.history ?? [];
+    
     const currRenderedMove = useRef<number>(props.moveNumber);
     
     const [selectedSquare, setSelectedSquare] = useState<{ row: number, col: number } | null>(null);
@@ -39,7 +38,7 @@ export default function GameBoard(props: GameBoardProps) {
     const TryMakeMove = (row: number, col: number) => {
 
         if (selectedSquare === undefined || selectedSquare === null){ return; }
-        if (props.gameIdRef.current === null) { return; }
+        if (props.currentGame.current === null) { return; }
 
         const toIndex = row * 8 + col;
         const fromIndex = selectedSquare.row * 8 + selectedSquare.col;
@@ -48,7 +47,7 @@ export default function GameBoard(props: GameBoardProps) {
     }
     
     useEffect(() => {
-        const movedBoard = PlayMoves(currRenderedMove.current, props.moveNumber, moveHistory.current, gameState);
+        const movedBoard = PlayMoves(currRenderedMove.current, props.moveNumber, moveHistory, gameState);
         currRenderedMove.current = props.moveNumber;
         setGameState(movedBoard);
     }, [props.moveNumber]);
@@ -69,7 +68,7 @@ export default function GameBoard(props: GameBoardProps) {
         }
     };
     
-    const activeState = props.moveNumber === moveHistory.current.length-1;
+    const activeState = props.moveNumber === moveHistory.length-1;
     const squaresToRender = ResolveSquaresToRender(gameState, forcedMoves, activeState, selectedSquare);
     
     let deactivatedClass = activeState ? "" : " deactivated-board";

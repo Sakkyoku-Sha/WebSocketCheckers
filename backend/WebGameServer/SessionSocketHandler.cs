@@ -1,7 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Net.WebSockets;
-
-using WebGameServer.WebSockets.FromClientMessages;
+using WebGameServer.WebSockets.Readers;
 using WebGameServer.WebSockets.Writers;
 
 namespace WebGameServer;
@@ -103,7 +102,7 @@ public static class SessionSocketHandler
         throw new Exception("FAILED TO RETRIEVE SESSION FOR USER " + userId);
     }
 
-    public static void SetPlayerSession(UserSession session, Guid messagePlayerId)
+    public static void IdentifyPlayerSessions(UserSession session, Guid messagePlayerId)
     {
         session.PlayerId = messagePlayerId;
         session.Identified = true;

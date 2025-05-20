@@ -2,12 +2,11 @@
 
 namespace WebGameServer.WebSockets.Writers.MessageWriters;
 
-public struct SessionStartWriter(ref Guid sessionId) : IMessageWriter
+public readonly struct SessionStartWriter(Guid sessionId) : IMessageWriter
 {
-    private Guid _sessionId = sessionId;
     public void WriteBytes(ref ByteWriter byteWriter)
     {
-        byteWriter.WriteGuid(ref _sessionId);
+        byteWriter.WriteGuid(sessionId);
     }
 
     public int CalculatePayLoadLength()
@@ -15,6 +14,6 @@ public struct SessionStartWriter(ref Guid sessionId) : IMessageWriter
         return ByteWriterCommon.GuidByteLength;
     }
 
-    public static ToClientMessageType MessageType => ToClientMessageType.SessionStartMessage;
+    public static ToClientMessageType ResponseType => ToClientMessageType.SessionStartMessage;
     public static ushort Version => 1;
 }

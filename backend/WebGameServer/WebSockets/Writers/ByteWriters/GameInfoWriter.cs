@@ -20,17 +20,17 @@ public readonly struct GameInfoWriter(GameInfo? gameInfo) : IByteWriter
         //GameInfo
         byteWriter.WriteInt(gameInfo.GameId);
         byteWriter.WriteByte((byte)gameInfo.Status);
-        byteWriter.WriteLengthPrefixedStringUTF16LE(ref gameInfo.GameName);
+        byteWriter.WriteLengthPrefixedStringUTF16LE(gameInfo.GameName);
         
         //Player 1 Info 
         ref var player1 = ref gameInfo.Player1;
-        byteWriter.WriteGuid(ref player1.PlayerId);
-        byteWriter.WriteLengthPrefixedStringUTF16LE(ref player1.PlayerName);
+        byteWriter.WriteGuid(player1.PlayerId);
+        byteWriter.WriteLengthPrefixedStringUTF16LE(player1.PlayerName);
         
         //Player 2 Info 
         ref var player2 = ref gameInfo.Player2;
-        byteWriter.WriteGuid(ref player2.PlayerId);
-        byteWriter.WriteLengthPrefixedStringUTF16LE(ref player2.PlayerName);
+        byteWriter.WriteGuid(player2.PlayerId);
+        byteWriter.WriteLengthPrefixedStringUTF16LE(player2.PlayerName);
 
         //Game History Info
         byteWriter.WriteUShort((ushort)gameInfo.MoveHistoryCount);

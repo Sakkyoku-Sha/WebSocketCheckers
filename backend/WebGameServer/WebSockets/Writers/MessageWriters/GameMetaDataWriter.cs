@@ -16,8 +16,8 @@ public readonly struct GameMetaDataWriter(GameMetaData[] gameMetaData) : IMessag
         {
             var game = gameMetaData[i]; 
             byteWriter.WriteInt(game.GameId);
-            byteWriter.WriteLengthPrefixedStringUTF16LE(ref game.Player1.PlayerName);
-            byteWriter.WriteLengthPrefixedStringUTF16LE(ref game.Player2.PlayerName);
+            byteWriter.WriteLengthPrefixedStringUTF16LE(game.Player1.PlayerName);
+            byteWriter.WriteLengthPrefixedStringUTF16LE(game.Player2.PlayerName);
         }
     }
 
@@ -34,6 +34,6 @@ public readonly struct GameMetaDataWriter(GameMetaData[] gameMetaData) : IMessag
         return totalBytes;
     }
 
-    public static ToClientMessageType MessageType => ToClientMessageType.ActiveGamesMessage;
+    public static ToClientMessageType ResponseType => ToClientMessageType.ActiveGamesResponse;
     public static ushort Version => 1;
 }

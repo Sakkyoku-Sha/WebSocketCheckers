@@ -1,23 +1,26 @@
+import {GameInfo} from "@/app/WebSocket/Decoding";
+
 "useclient";
 import { RefObject } from "react";
 import { CheckersMove } from "./page";
 
 
 export interface GameHistoryProps {
-    moveHistory: RefObject<CheckersMove[]>
+    currentGame: RefObject<GameInfo | null>
     moveNumber: number
     onMoveClick: (index : number) => void
 }
 
 export default function GameHistory(props : GameHistoryProps){
 
-    const { moveHistory, moveNumber, onMoveClick } = props;
-
+    const { currentGame, moveNumber, onMoveClick } = props;
+    const moveHistory = currentGame.current?.history ?? []; 
+    
     const handleClick = (index: number) => {
         onMoveClick(index);
     }
 
-    const items = moveHistory.current.map((move, index) => {
+    const items = moveHistory.map((move, index) => {
         return <GameHistoryItem
                 key={index}
                 move={move}

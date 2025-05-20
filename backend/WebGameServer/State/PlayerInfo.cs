@@ -1,17 +1,18 @@
 ﻿namespace WebGameServer.State;
 
-public struct PlayerInfo(Guid playerId, string playerName)
+public readonly struct PlayerInfo(Guid playerId, string playerName, bool isPlayer1)
 {
-    public PlayerInfo() : this(Guid.Empty, string.Empty)
+    public PlayerInfo() : this(Guid.Empty, string.Empty, false)
     {
     }
     
-    public PlayerInfo(Guid playerId) : this(playerId, DefaultName(playerId))
+    public PlayerInfo(Guid playerId, bool isPlayer1) : this(playerId, DefaultName(playerId), isPlayer1)
     {
     }
     
-    public Guid PlayerId = playerId; 
-    public string PlayerName = playerName;
+    public readonly Guid PlayerId = playerId; 
+    public readonly string PlayerName = playerName;
+    public readonly bool IsPlayer1 = isPlayer1; 
     
     public bool IsDefined => PlayerId != Guid.Empty;
     public static PlayerInfo Empty = new PlayerInfo();

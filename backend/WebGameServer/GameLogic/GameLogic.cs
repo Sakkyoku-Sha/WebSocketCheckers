@@ -40,6 +40,10 @@ public static class GameLogic
 
         var forcedJumps = DetermineForcedJumpsInPosition(ref state);
         state.CurrentForcedJumps = forcedJumps;
+        state.ForcedJumpsCalculated = true; 
+        
+        //Update the game result if the game is over.
+        UpdateGameResult(ref state);
         
         return new TryMoveResult(true, shouldPromote, validationResult.JumpInfo?.capturedPieces ?? 0ul);
     }
@@ -93,6 +97,27 @@ public static class GameLogic
 
     private static MoveValidationResult ValidateMove(GameState state, int fromBitIndex, int toBitIndex)
     {
+        //Move must be on a game in progress
+        if(state.Result != GameResult.InProgress){ return MoveValidationResult.Invalid; }
+        
+        if (state.ForcedJumpsCalculated == false)
+        {
+            var forcedJumps = DetermineForcedJumpsInPosition(ref state);
+            state.CurrentForcedJumps = forcedJumps;
+            state.ForcedJumpsCalculated = true;
+        }
+        
+        var matchIndex = Array.FindIndex(state.CurrentForcedJumps, x => x.InitialPosition == fromBitIndex && x.EndOfPath == toBitIndex);
+        if (matchIndex >= 0)
+        {
+            var matchingJump = state.CurrentForcedJumps[matchIndex];
+            return new MoveValidationResult(true, (matchingJump.CapturedPieces, matchingJump.IsKing));
+        }
+        if (state.CurrentForcedJumps.Length > 0 && matchIndex == -1)
+        {
+           return MoveValidationResult.Invalid;     
+        }
+        
         var (fromX, fromY) = GameState.GetXy(fromBitIndex);
         var (toX, toY) = GameState.GetXy(toBitIndex);
         
@@ -127,52 +152,19 @@ public static class GameLogic
         //Determine offsets. 
         var dx = toX- fromX;
         var dy = toY - fromY;
-        
-        //Pawn movement must be forward 
-        if (!isKing && (state.IsPlayer1Turn && dy > 0) || !isKing && (!state.IsPlayer1Turn && dy < 0))
+        if (Math.Abs(dx) != 1 || Math.Abs(dy) != 1) //If it's not a jump it must be a move by a single square 
         {
             return MoveValidationResult.Invalid;
         }
         
-        //Randomly fined tuned values to work "in average cases" 
-        var forcedJumps = state.CurrentForcedJumps; 
-        var count = forcedJumps.Length;
-        if (count == 0) //if we haven't precalced the jumps in the previous step
-        {
-            Span<JumpPath> results = stackalloc JumpPath[6];
-            Span<JumpPath> work    = stackalloc JumpPath[32];
-            count = DetermineAllPossibleJumps(
-                state.IsPlayer1Turn,
-                playerPieces,
-                playerKings,
-                allPieces,
-                results,
-                work
-            );
-            if (count == 0 && Math.Abs(dx) == 1 && Math.Abs(dy) == 1)
-            {
-                return new MoveValidationResult(true, null);
-            }
-            forcedJumps = results[..count].ToArray();
-        }
-        
-        //Only valid if there is a path with an end with the request to location.
-        JumpPath selectedJumpPath = default;
-        for (var i = 0; i < count; i++)
-        {
-            var jumpPath = forcedJumps[i];
-            if (jumpPath.EndOfPath == toBitIndex && jumpPath.InitialPosition == fromBitIndex)
-            {
-                selectedJumpPath = forcedJumps[i];
-                break;
-            }
-        }
-        if (selectedJumpPath.CapturedPieces == 0ul) //should Only occur in made up cases as this would be a jump without any captures 
+        //Pawn movement that isn't a jump, must be forward 
+        var movingForward = state.IsPlayer1Turn && dy < 0 || !state.IsPlayer1Turn && dy > 0;
+        if (isKing == false && movingForward == false)
         {
             return MoveValidationResult.Invalid;
         }
         
-        return new MoveValidationResult(true, (selectedJumpPath.CapturedPieces, selectedJumpPath.IsKing));
+        return new MoveValidationResult(true, null);
     }
     private static void MovePlayerPiece(ref GameState state, int fromBitIndex, int toBitIndex, bool wasKing)
     {
@@ -324,6 +316,73 @@ public static class GameLogic
     {
         return player1Turn ? jumpIndex < 8 : jumpIndex > 55;
     }
+
+    private static void UpdateGameResult(ref GameState state)
+    {
+        var player1Pieces = state.GetPlayer1Pieces();
+        var player2Pieces = state.GetPlayer2Pieces();
+
+        if (player1Pieces == GameState.EmptyBoard)
+        {
+            state.Result = GameResult.Player2Win;
+        }
+        else if (player2Pieces == GameState.EmptyBoard)
+        {
+            state.Result = GameResult.Player1Win;
+        }
+        else if (MovesArePossible(ref state))
+        {
+            //We have already flipped the turns at this point, so the current turn loses. 
+            state.Result = state.IsPlayer1Turn ? GameResult.Player2Win : GameResult.Player1Win;
+        }
+        else
+        {
+            state.Result = GameResult.InProgress;
+        }
+    }
+
+    private static bool MovesArePossible(ref GameState state)
+    {
+        // Check if there are no possible moves left for the current player
+        var playerPieces = state.IsPlayer1Turn ? state.GetPlayer1Pieces() : state.GetPlayer2Pieces();
+        var playerKings = state.IsPlayer1Turn ? state.Player1Kings : state.Player2Kings;
+        var allPieces = state.GetAllPieces(); 
+        var isPlayer1Turn = state.IsPlayer1Turn;
+        
+        // Check all pieces to see if they have a valid move. If no moves are possible, and now jumps are possible
+        // then the game is a draw.
+        for(var i = 0; i < GameState.BoardSize * GameState.BoardSize; i++)
+        {
+            if (!GameState.IsBitSet(playerPieces, i)) continue;
+            
+            var piecesIsKing = GameState.IsBitSet(playerKings, i);
+            var pieceMovements = piecesIsKing ? 
+                KingDirections :
+                (isPlayer1Turn ? Player1PawnDirections : Player2PawnDirections);
+
+            foreach (var movement in pieceMovements)
+            {
+                var (x, y) = GameState.GetXy(i);
+                var toCheck = (x + movement.Item1, y + movement.Item2);
+                
+                if(!IsOnBoard(toCheck.Item1, toCheck.Item2)) continue;
+                
+                var toCheckIndex = GameState.GetBitIndex(toCheck.Item1, toCheck.Item2);
+                if (!GameState.IsBitSet(allPieces, toCheckIndex))
+                {
+                    //A movement is possible, so we are no in a draw state
+                    return false;
+                }
+            }
+        }
+        
+        //Assumes the GameState has an up-to-date list of forced jumps. (which are all jumps);
+        return state.CurrentForcedJumps.Length == 0; 
+    }
+
+    private static readonly (int, int)[] Player1PawnDirections = [(-1, -1), (1, -1)]; 
+    private static readonly (int, int)[] Player2PawnDirections = [(-1, 1), (1, 1)];
+    private static readonly (int, int)[] KingDirections = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
 }
 
 public struct TryMoveResult(bool success, bool promoted, ulong capturedPieces)

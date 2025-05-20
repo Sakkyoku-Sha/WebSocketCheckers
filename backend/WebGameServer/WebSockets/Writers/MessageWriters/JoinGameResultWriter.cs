@@ -16,6 +16,6 @@ public readonly struct JoinGameResultWriter(bool tryJoinGameResult, GameInfo? ga
         return sizeof(bool) + _gameInfoWriter.CalculatePayLoadLength();
     }
 
-    public static ToClientMessageType MessageType => ToClientMessageType.TryJoinGameResultMessage;
+    public static ToClientMessageType ResponseType => ToClientMessageType.TryJoinGameResponse;
     public static ushort Version => 1; 
 }

@@ -9,13 +9,13 @@ namespace WebGameServerTests;
 public class MessageWriterTests
 {
     [Test]
-    public void GameCreatedOrUpdatedWriter()
+    public void GameCreatedWriter()
     {
         var buffer = new byte[1024];
         var byteWriter = new ByteWriter(buffer);
         
-        var player1 = new PlayerInfo(Guid.NewGuid(), "Player1");
-        var writer = new GameCreatedOrUpdatedWriter(new GameMetaData(1, ref player1, ref PlayerInfo.Empty));
+        var player1 = new PlayerInfo(Guid.NewGuid(), "Player1", true);
+        var writer = new GameCreatedWriter(new GameMetaData(1, player1, PlayerInfo.Empty));
         writer.WriteBytes(ref byteWriter);
         
         Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.BytesWritten));     
@@ -32,8 +32,8 @@ public class MessageWriterTests
 
         GameMetaData[] activeGames =
         [
-            new(0, ref player1, ref player2),
-            new(1, ref player1, ref player2),
+            new(0, player1, player2),
+            new(1, player1, player2),
         ];
 
         var writer = new GameMetaDataWriter(activeGames);
@@ -52,15 +52,15 @@ public class MessageWriterTests
         var player2 = new PlayerInfo();
         GameMetaData[] activeGames =
         [
-            new(0, ref player1, ref player2),
-            new(1, ref player1, ref player2),
+            new(0, player1, player2),
+            new(1, player1, player2),
         ];
         var gameInfo = new GameInfo(1);
         gameInfo.Reset();
         gameInfo.GameState.CurrentForcedJumps = new JumpPath[]
         {
-            new() { EndOfPath = 1 },
-            new() { EndOfPath = 2 },
+            new(1, false, 3, 4),
+            new(5,false,7,8),
         };
         
         var writer = new InitialMessageWriter(activeGames, gameInfo);
@@ -110,10 +110,10 @@ public class MessageWriterTests
         var checkersMove = new CheckersMove();
         var jumpPaths = new JumpPath[]
         {
-            new(){EndOfPath = 1},
-            new(){EndOfPath = 2},
+            new(1, false, 3, 4),
+            new(5,false,7,8),
         };
-        var writer = new NewMoveWriter(ref checkersMove, jumpPaths);
+        var writer = new NewMoveWriter(checkersMove, jumpPaths);
         
         writer.WriteBytes(ref byteWriter);
         Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.BytesWritten));
@@ -126,7 +126,7 @@ public class MessageWriterTests
         var byteWriter = new ByteWriter(buffer);
         
         var playerInfo = new PlayerInfo();
-        var writer = new OtherPlayerJoinedWriter(ref playerInfo);
+        var writer = new PlayerJoinedWriter(playerInfo);
         
         writer.WriteBytes(ref byteWriter);
         Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.BytesWritten));
@@ -139,7 +139,19 @@ public class MessageWriterTests
         var byteWriter = new ByteWriter(buffer);
         
         var sessionId = Guid.NewGuid();
-        var writer = new SessionStartWriter(ref sessionId);
+        var writer = new SessionStartWriter(sessionId);
+        
+        writer.WriteBytes(ref byteWriter);
+        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.BytesWritten));
+    }
+    
+    [Test]
+    public void GameStatusWriter()
+    {
+        var buffer = new byte[1024];
+        var byteWriter = new ByteWriter(buffer);
+        
+        var writer = new GameStatusWriter(GameStatus.Player1Win);
         
         writer.WriteBytes(ref byteWriter);
         Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.BytesWritten));

@@ -2,7 +2,7 @@
 
 namespace WebGameServer.GameStateManagement.GameStateStore;
 
-internal struct GameSlot(SemaphoreSlim gameLock, GameInfo gameInfo)
+internal readonly struct GameSlot(SemaphoreSlim gameLock, GameInfo gameInfo)
 {
     public readonly SemaphoreSlim GameLock = gameLock; 
     public readonly GameInfo GameInfo = gameInfo;
@@ -13,7 +13,6 @@ public static class LocalGameSpace
     private const int GameSpaceCapacity = 1000;
     private static GameSlot[] _gameSpace = new GameSlot[GameSpaceCapacity];
     private static int _lastCreatedGameSlot = 0;
-    private static readonly List<int> ActiveGames = new(GameSpaceCapacity); 
     
     public static void Initialize()
     {
@@ -28,9 +27,8 @@ public static class LocalGameSpace
     {
         var lastCreatedGameSlot = _lastCreatedGameSlot; //create a copy as to not cause a race on the original
         var i = _lastCreatedGameSlot;
-        var newGameId = -1;
         var didCreateGame = false;
-        var creatingPlayer = new PlayerInfo(playerId);
+        var creatingPlayer = new PlayerInfo(playerId, true);
         
         GameMetaData createdGameMetaData = default;
         do
@@ -45,7 +43,7 @@ public static class LocalGameSpace
             
             try
             {
-                if (gameSlot.GameInfo.Status is GameStatus.Finished or GameStatus.Abandoned or GameStatus.NoPlayers)
+                if (gameSlot.GameInfo.IsActive == false)
                 {
                     didCreateGame = true;
                     gameSlot.GameInfo.Reset();
@@ -53,11 +51,8 @@ public static class LocalGameSpace
                     gameSlot.GameInfo.Player2 = PlayerInfo.Empty;
                     gameSlot.GameInfo.Status = GameStatus.WaitingForPlayers;
                     _lastCreatedGameSlot = i;
-                    newGameId = i;
                     
-                    ActiveGames.Add(newGameId);
-
-                    createdGameMetaData = gameSlot.GameInfo.SnapShot();
+                    createdGameMetaData = gameSlot.GameInfo.ToMetaData();
                 }
             }
             catch (Exception exception)
@@ -80,7 +75,7 @@ public static class LocalGameSpace
         return new TryCreateGameResult(didCreateGame, createdGameMetaData);
     }
     
-    public static async Task TrySetPlayerInfo(int gameId, Guid playerId, Func<GameInfo, PlayerInfo, Task> onSuccess, Action onFail)
+    public static async Task TryJoinGame(int gameId, Guid playerId, Func<GameInfo, PlayerInfo, Task> onSuccess, Action onFail)
     {
         await LockExecuteState(gameId, async (gameInfo) =>
         {
@@ -94,12 +89,12 @@ public static class LocalGameSpace
             }
             if (gameInfo.Player1.IsDefined)
             {
-                gameInfo.Player2 = new PlayerInfo(playerId);
+                gameInfo.Player2 = new PlayerInfo(playerId, false);
                 opponentInfo = gameInfo.Player1;
             }
             else
             {
-                gameInfo.Player1 = new PlayerInfo(playerId);
+                gameInfo.Player1 = new PlayerInfo(playerId, true);
                 opponentInfo = gameInfo.Player2;
             }
             
@@ -117,6 +112,7 @@ public static class LocalGameSpace
             {
                 var checkersMove = new CheckersMove(fromXy, toXy, result.Promoted, result.CapturedPieces);
                 gameInfo.AddHistory(checkersMove);
+                gameInfo.RefreshStatus();
                 await onSuccessfulMove(gameInfo, checkersMove);
             }
         });
@@ -124,18 +120,30 @@ public static class LocalGameSpace
 
     public static GameMetaData[] GetActiveGames()
     {
-        var result = new GameMetaData[ActiveGames.Count];
-        for (var i = 0; i < ActiveGames.Count; i++)
+        //optimize this later. Probably want to maintain a list or hashset of active games instead. 
+        var activeGamesCount = 0;
+        for (var i = 0; i < _gameSpace.Length; i++)
         {
-            var gameId = ActiveGames[i];
-            
-            var gameInfo = _gameSpace[gameId].GameInfo; 
-            result[i] = new GameMetaData(gameId, ref gameInfo.Player1, ref gameInfo.Player2);
+            ref readonly var gameSlot = ref _gameSpace[i];
+            if (gameSlot.GameInfo.IsActive)
+            {
+                activeGamesCount++;
+            }
         }
-        return result;
+        var activeGames = new GameMetaData[activeGamesCount];
+        for (var i = 0; i < activeGamesCount; i++)
+        {
+            ref readonly var gameSlot = ref _gameSpace[i];
+            if (gameSlot.GameInfo.IsActive)
+            {
+                activeGames[i] = gameSlot.GameInfo.ToMetaData();
+            }
+        }
+        
+        return activeGames;
     }
     
-    private static GameSlot GetGameSlotIfValid(int gameId)
+    private static GameSlot GetGameSlotIfActive(int gameId)
     {
         if (gameId < 0 || gameId >= _gameSpace.Length)
         {
@@ -143,10 +151,23 @@ public static class LocalGameSpace
         }
         
         ref var gameSlot = ref _gameSpace[gameId];
-        if (gameSlot.GameInfo == null || 
-            gameSlot.GameInfo.Status == GameStatus.Finished || 
-            gameSlot.GameInfo.Status == GameStatus.Abandoned || 
-            gameSlot.GameInfo.Status == GameStatus.NoPlayers)
+        if (gameSlot.GameInfo.IsActive == false)
+        {
+            throw new InvalidOperationException("Attempted to mutate non active game");
+        }
+
+        return gameSlot;
+    }
+    
+    private static GameSlot GetGameSlot(int gameId)
+    {
+        if (gameId < 0 || gameId >= _gameSpace.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(gameId));
+        }
+        
+        ref var gameSlot = ref _gameSpace[gameId];
+        if (gameSlot.GameInfo.IsActive == false)
         {
             throw new InvalidOperationException("Attempted to mutate non active game");
         }
@@ -156,7 +177,7 @@ public static class LocalGameSpace
     
     public static async Task LockExecuteState(int gameId, Action<GameInfo> mutation)
     {
-        var gameSlot = GetGameSlotIfValid(gameId);
+        var gameSlot = GetGameSlotIfActive(gameId);
         
         await gameSlot.GameLock.WaitAsync();  // Asynchronously acquire the lock
         try
@@ -176,7 +197,7 @@ public static class LocalGameSpace
     {
         TResult? result = default;
         
-        var gameSlot = GetGameSlotIfValid(gameId);
+        var gameSlot = GetGameSlotIfActive(gameId);
         
         await gameSlot.GameLock.WaitAsync();  // Asynchronously acquire the lock
         try
@@ -197,7 +218,7 @@ public static class LocalGameSpace
     
     public static async Task LockExecuteState(int gameId, Func<GameInfo, Task> mutation)
     {
-        var gameSlot = GetGameSlotIfValid(gameId);
+        var gameSlot = GetGameSlotIfActive(gameId);
         
         await gameSlot.GameLock.WaitAsync();  // Asynchronously acquire the lock
         try
@@ -218,7 +239,7 @@ public static class LocalGameSpace
     {
         TResult? result = default;
         
-        var gameSlot = GetGameSlotIfValid(gameId);
+        var gameSlot = GetGameSlotIfActive(gameId);
         
         await gameSlot.GameLock.WaitAsync();  // Asynchronously acquire the lock
         try
@@ -236,6 +257,36 @@ public static class LocalGameSpace
 
         return result;
     }
+
+    public static void ResetGame(int gameInfoGameId)
+    {
+        //If we are calling a reset we do not care about any other requests on this state after. 
+        //So race conditions are ignored. 
+        var gameSlot = _gameSpace[gameInfoGameId];
+        gameSlot.GameInfo.Reset();
+    }
+
+    public static PlayerInfo GetOpponentInfo(int sourceSessionGameId, Guid sourceSessionPlayerId)
+    {
+        var users = _gameSpace[sourceSessionGameId].GameInfo.GetNonNullUsers();
+        foreach (var user in users)
+        {
+            if (user.PlayerId == sourceSessionPlayerId) continue;
+            return user;
+        }
+        
+        return PlayerInfo.Empty;
+    }
+
+    public static void UpdateGameStatus(int sourceSessionGameId, GameStatus status)
+    {
+        //Assumes we don't care about any moves made in and around this time since GameStatus changes are made to end 
+        //the game.
+        var gameSlot = GetGameSlot(sourceSessionGameId); 
+        gameSlot.GameInfo.Status = status;
+        
+        //No need to reset the data since if the game is not active it will be recycled later when creating games. 
+    }
 } 
 
 public readonly struct TryCreateGameResult(bool didCreateGame, GameMetaData snapShot)
@@ -244,9 +295,9 @@ public readonly struct TryCreateGameResult(bool didCreateGame, GameMetaData snap
     public readonly GameMetaData CreatedGame = snapShot;
 }
 
-public struct GameMetaData(int gameId, ref PlayerInfo player1, ref PlayerInfo player2)
+public readonly struct GameMetaData(int gameId, PlayerInfo player1, PlayerInfo player2)
 {
-    public PlayerInfo Player1 = player1;
-    public PlayerInfo Player2 = player2;
+    public readonly PlayerInfo Player1 = player1;
+    public readonly PlayerInfo Player2 = player2;
     public readonly int GameId = gameId; 
 }

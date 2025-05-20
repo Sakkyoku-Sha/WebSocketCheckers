@@ -33,6 +33,7 @@ public struct GameState()
     
     //Mainly exists to help the client know if it should show a forced jump.
     public JumpPath[] CurrentForcedJumps = [];
+    public bool ForcedJumpsCalculated = false; 
     
     public GameState(GameState other) : this()
     {
@@ -73,6 +74,15 @@ public struct GameState()
     public ulong GetPlayer1Pieces() => Player1Pawns | Player1Kings;
     public ulong GetPlayer2Pieces() => Player2Pawns | Player2Kings;
     public ulong GetAllPieces() => Player1Pawns | Player2Pawns | Player2Kings | Player1Kings;
+    
+    public ulong PlayerPieces()
+    {
+        return IsPlayer1Turn ? GetPlayer1Pieces() : GetPlayer2Pieces();
+    }
+    public ulong OpponentPieces()
+    {
+        return IsPlayer1Turn ? GetPlayer2Pieces() : GetPlayer1Pieces();
+    }
 } 
 
 public struct JumpPath(int endOfPath, bool isKing, ulong capturedPieces, int initialPosition)

@@ -1,11 +1,22 @@
-// 1. Mirror the C# FromClientMessageType Enum
-export enum ToServerMessageType
+enum ToServerMessageType
 {
+    //Initial Message From User 
     IdentifyUser = 0,
-    TryMakeMove = 1,
-    TryJoinGame = 2,
-    TryCreateGame = 3,
-    GetActiveGamesRequest = 4,
+
+    //Server Status Queries 
+    GetActiveGamesRequest = 1,
+
+    //Try Act on Game State, Either Game State is Updated or Fail Response is Returned
+    TryJoinGameRequest = 2,
+    TryCreateGameRequest = 3,
+    TryMakeMoveRequest = 4,
+
+    //Draw Request / Responses  
+    DrawRequest = 5,
+    DrawRequestResponse = 6,
+
+    //Game Status Changes
+    Surrender = 7,
 }
 /**
  * Helper to convert a 2-char hex string part to a byte.
@@ -81,7 +92,6 @@ export function encodeWrapper(version : number, type: ToServerMessageType, paylo
     dataView.setUint16(offset, type, littleEndian);
     offset += 2;
     
-    
     // Write Payload
     if(payload.length === 0) {return buffer;}
     
@@ -101,18 +111,15 @@ export function encodeIdentifyUserMessage(userId: string): ArrayBuffer {
     );
 }
 
-export function encodeCreateGameMessage(userId: string): ArrayBuffer {
-
-    const payloadBytes = encodeGuidNet(userId);
+export function encodeCreateGameMessage(): ArrayBuffer {
     return encodeWrapper(
         1,
-        ToServerMessageType.TryCreateGame,
-        payloadBytes
+        ToServerMessageType.TryCreateGameRequest,
+        new Uint8Array(),
     );
 }
 
 export function encodeActiveGamesMessage(){
- 
     const payloadBytes = new Uint8Array();
     return encodeWrapper(
         1,
@@ -120,43 +127,62 @@ export function encodeActiveGamesMessage(){
         payloadBytes
     )
 }
-
-export function encodeTryMakeMoveMessage(userId : string, gameId : number, fromIndex : number, toIndex : number): ArrayBuffer {
-    
-    const totalLength = 16 + 4 + 1 + 1; 
-    const buffer = new ArrayBuffer(totalLength);
-    const view = new Uint8Array(buffer);
-
-    const userIdBytes = encodeGuidNet(userId);
-    view.set(userIdBytes, 0);
-
-    const dataView = new DataView(buffer);
-    dataView.setInt32(16, gameId,true);
-    dataView.setUint8(20, fromIndex);
-    dataView.setUint8(21, toIndex);
-
+export function encodeDrawRequestMessage() {
+    const payloadBytes = new Uint8Array();
     return encodeWrapper(
         1,
-        ToServerMessageType.TryMakeMove,
+        ToServerMessageType.DrawRequest,
+        payloadBytes
+    )
+}
+
+export function encodeDrawRequestResponse() {
+    const payloadBytes = new Uint8Array();
+    return encodeWrapper(
+        1,
+        ToServerMessageType.DrawRequestResponse,
+        payloadBytes
+    )
+}
+
+export function encodeSurrenderMessage() {
+    const payloadBytes = new Uint8Array();
+    return encodeWrapper(
+        1,
+        ToServerMessageType.Surrender,
+        payloadBytes
+    )
+}
+
+export function encodeTryMakeMoveMessage(fromIndex : number, toIndex : number): ArrayBuffer {
+    
+    const totalLength = 1 + 1; 
+    const buffer = new ArrayBuffer(totalLength);
+    const view = new Uint8Array(buffer);
+    
+    const dataView = new DataView(buffer);
+    dataView.setUint8(0, fromIndex);
+    dataView.setUint8(1, toIndex);
+    
+    return encodeWrapper(
+        1,
+        ToServerMessageType.TryMakeMoveRequest,
         view,
     );
 }
 
-export function encodeTryJoinGameMessage(userId : string, gameId : number): ArrayBuffer {
+export function encodeTryJoinGameMessage(gameId : number): ArrayBuffer {
     
-    const totalLength = 16 + 4; 
+    const totalLength = 4; 
     const buffer = new ArrayBuffer(totalLength);
     const view = new Uint8Array(buffer);
     
-    const userIdBytes = encodeGuidNet(userId);
-    view.set(userIdBytes, 0);
-    
     const dataView = new DataView(buffer);
-    dataView.setInt32(16, gameId,true);
+    dataView.setInt32(0, gameId,true);
     
     return encodeWrapper(
         1,
-        ToServerMessageType.TryJoinGame,
+        ToServerMessageType.TryJoinGameRequest,
         view,
     )
 }

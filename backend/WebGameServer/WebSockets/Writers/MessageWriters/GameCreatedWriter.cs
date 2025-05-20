@@ -3,7 +3,7 @@ using WebGameServer.WebSockets.Writers.ByteWriters;
 
 namespace WebGameServer.WebSockets.Writers.MessageWriters;
 
-public readonly struct GameCreatedOrUpdatedWriter(GameMetaData createdGame) : IMessageWriter
+public readonly struct GameCreatedWriter(GameMetaData createdGame) : IMessageWriter
 {
     private readonly GameMetaDataWriter _gameMetaDataWriter = new([createdGame]);
     public void WriteBytes(ref ByteWriter byteWriter)
@@ -16,6 +16,6 @@ public readonly struct GameCreatedOrUpdatedWriter(GameMetaData createdGame) : IM
         return _gameMetaDataWriter.CalculatePayLoadLength();
     }
 
-    public static ToClientMessageType MessageType => ToClientMessageType.GameCreatedOrUpdatedMessage;
+    public static ToClientMessageType ResponseType => ToClientMessageType.GameCreatedMessage;
     public static ushort Version => 1;
 }

@@ -9,18 +9,20 @@ public enum GameStatus : byte
     NoPlayers = 0,
     WaitingForPlayers = 1,
     InProgress = 2,
-    Finished = 3,
-    Abandoned = 4
+    Abandoned = 3,
+    Player1Win = 4,
+    Player2Win = 5,
+    Draw = 6,
 }
 
 //Required for Efficient Byte Serialization DO NOT DELETE 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly record struct CheckersMove(byte FromIndex, byte ToIndex, bool Promoted, ulong CapturedPieces)
+public readonly struct CheckersMove(byte fromIndex, byte toIndex, bool promoted, ulong capturedPieces)
 {
-    public readonly byte FromIndex = FromIndex;
-    public readonly byte ToIndex = ToIndex;
-    public readonly bool Promoted = Promoted; 
-    public readonly ulong CapturedPieces = CapturedPieces;
+    public readonly byte FromIndex = fromIndex;
+    public readonly byte ToIndex = toIndex;
+    public readonly bool Promoted = promoted; 
+    public readonly ulong CapturedPieces = capturedPieces;
     
     public const int ByteSize = 11; 
 }
@@ -44,10 +46,12 @@ public class GameInfo
         GameState = new GameState(true); 
         GameId = gameId < 0 ? throw new ArgumentOutOfRangeException(nameof(gameId)) : gameId;
     }
-    
-    public GameMetaData SnapShot()
+
+    public bool IsActive => Status is GameStatus.InProgress or GameStatus.WaitingForPlayers;
+
+    public GameMetaData ToMetaData()
     {
-        return new GameMetaData(GameId, ref Player1, ref Player2);
+        return new GameMetaData(GameId, Player1, Player2);
     }
 
     public void AddHistory(CheckersMove move)
@@ -57,6 +61,7 @@ public class GameInfo
             var newHistoryCapacity = _moveHistoryCapacity << 1;
             var largerArray = new CheckersMove[newHistoryCapacity];
             Array.Copy(MoveHistory, largerArray, _moveHistoryCapacity);
+            MoveHistory = largerArray;
             _moveHistoryCapacity = newHistoryCapacity; 
         }
         MoveHistory[MoveHistoryCount] = move;
@@ -102,5 +107,38 @@ public class GameInfo
         }
 
         return [];
-    } 
+    }
+
+    public void RefreshStatus()
+    {
+        if (Player1.IsDefined && Player2.IsDefined)
+        {
+            Status = GameState.Result switch
+            {
+                GameResult.Player1Win => GameStatus.Player1Win,
+                GameResult.Player2Win => GameStatus.Player2Win,
+                GameResult.Draw => GameStatus.Draw,
+                GameResult.InProgress => GameStatus.InProgress,
+                _ => throw new ArgumentOutOfRangeException()
+            };
+        }
+        else if (Player1.IsDefined || Player2.IsDefined)
+        {
+            Status = GameStatus.WaitingForPlayers;
+        }
+        else
+        {
+            Status = GameStatus.NoPlayers;
+        }
+    }
+    
+    public void SetAbandon()
+    {
+        Status = GameStatus.Abandoned;
+    }
+
+    public bool IsGameFinished()
+    {
+        return Status is GameStatus.Abandoned or GameStatus.Player1Win or GameStatus.Player2Win or GameStatus.Draw;
+    }
 }

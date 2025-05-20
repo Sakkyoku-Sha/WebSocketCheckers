@@ -15,6 +15,6 @@ public readonly struct TryCreateGameResultWriter(int gameId) : IMessageWriter
         return sizeof(int);
     }
 
-    public static ToClientMessageType MessageType => ToClientMessageType.TryCreateGameResultMessage;
+    public static ToClientMessageType ResponseType => ToClientMessageType.TryCreateGameResponse;
     public static ushort Version => 1;
 }

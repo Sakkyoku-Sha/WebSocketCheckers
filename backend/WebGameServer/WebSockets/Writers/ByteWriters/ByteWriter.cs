@@ -26,7 +26,7 @@ public ref struct ByteWriter
     /// Writes the next 8 bytes to the span at the current offset
     /// </summary>
     /// <param name="value"></param>
-    public void WriteGuid(ref Guid value)
+    public void WriteGuid(Guid value)
     {
         MemoryMarshal.Write(_buffer[_offset..], in value);
         _offset += 16;
@@ -42,7 +42,7 @@ public ref struct ByteWriter
         _offset += sizeof(int);
     }
     
-    public void WriteLengthPrefixedStringUTF16LE(ref readonly string value)
+    public void WriteLengthPrefixedStringUTF16LE(string value)
     { 
         var stringSpan = MemoryMarshal.AsBytes(value.AsSpan());
         
@@ -69,6 +69,11 @@ public ref struct ByteWriter
         _offset += amountToWrite * CheckersMove.ByteSize;
     }
     public void WriteCheckersMove(ref readonly CheckersMove move)
+    {
+        MemoryMarshal.Write(_buffer[_offset..], in move);
+        _offset += CheckersMove.ByteSize;
+    }
+    public void WriteCheckersMove(CheckersMove move)
     {
         MemoryMarshal.Write(_buffer[_offset..], in move);
         _offset += CheckersMove.ByteSize;

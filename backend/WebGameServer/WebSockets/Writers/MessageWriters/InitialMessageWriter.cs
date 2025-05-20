@@ -4,18 +4,18 @@ using WebGameServer.WebSockets.Writers.ByteWriters;
 
 namespace WebGameServer.WebSockets.Writers.MessageWriters;
 
-public readonly struct InitialMessageWriter(GameMetaData[] gameMetaData, GameInfo? gameInfo) : IMessageWriter
+public readonly struct InitialMessageWriter(GameMetaData[] gameMetaData, GameInfo? currentGame) : IMessageWriter
 {
-    public static ToClientMessageType MessageType => ToClientMessageType.InitialServerMessage;
-    public static ushort Version => 0;
+    public static ToClientMessageType ResponseType => ToClientMessageType.InitialStateMessage;
+    public static ushort Version => 1;
     
     private readonly GameMetaDataWriter _gameMetaDataWriter = new(gameMetaData);
-    private readonly GameInfoWriter _gameInfoWriter = new(gameInfo);
+    private readonly GameInfoWriter _gameInfoWriter = new(currentGame);
     
     public void WriteBytes(ref ByteWriter byteWriter)
     {
         _gameMetaDataWriter.WriteBytes(ref byteWriter);
-        if (gameInfo != null)
+        if (currentGame != null)
         {
             byteWriter.WriteBool(true);
             _gameInfoWriter.WriteBytes(ref byteWriter);

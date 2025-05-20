@@ -434,6 +434,37 @@ public class GameLogicTests
     }
     
     [Test]
+    public void PawnEndsUpBehindWhereItStartedTest()
+    {
+        var boardString = new string[]
+        {
+            "........", // row 0
+            "..e.e...", // row 1
+            ".p......", // row 2: 
+            "....e...", // row 3: 
+            "........", // row 4
+            "........", // row 5
+            "........", // row 6
+            "........", // row 7
+        };
+        var state = CreateBoardFromStringArray(boardString);
+        
+        //Jumping Pawns 
+        var fromBit = GameState.GetBitIndex(1, 2);
+        var toBit = GameState.GetBitIndex(3, 4);
+
+        var isValidMove = GameLogic.TryApplyMove(ref state, fromBit, toBit);
+        
+        Assert.IsTrue(isValidMove.Success);
+        Assert.IsTrue(GameState.IsBitSet(state.Player1Kings, GameState.GetBitIndex(3,4))); //was promoted to king and jumped
+        
+        Assert.IsFalse(GameState.IsBitSet(state.GetPlayer1Pieces(), GameState.GetBitIndex(1,2)));//removed original piece 
+        Assert.IsFalse(GameState.IsBitSet(state.Player1Pawns, GameState.GetBitIndex(2,1))); //Removed all jumped pieces 
+        Assert.IsFalse(GameState.IsBitSet(state.Player1Pawns, GameState.GetBitIndex(4,1)));
+        Assert.IsFalse(GameState.IsBitSet(state.Player1Pawns, GameState.GetBitIndex(4,3)));
+    }
+    
+    [Test]
     public void PromotionAndRetreat()
     {
         var boardString = new string[]

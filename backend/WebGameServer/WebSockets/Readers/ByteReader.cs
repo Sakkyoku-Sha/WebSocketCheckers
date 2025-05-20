@@ -104,33 +104,29 @@ public interface IFixedByteSize
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct TryMakeMoveRequest(Guid playerId, int gameId, byte fromXy, byte toXy) : IFixedByteSize
+public readonly struct TryMakeMoveRequest(byte fromXy, byte toXy) : IFixedByteSize
 {
-    public readonly Guid PlayerId = playerId;
-    public readonly int GameId = gameId;
     public readonly byte FromXy = fromXy; //Bit Board Format e.g 10 == (2, 1) 
     public readonly byte ToXy = toXy;
-    public static int ByteSize => 16 + sizeof(int) + sizeof(byte) + sizeof(byte);
+    public static int ByteSize => sizeof(byte) + sizeof(byte);
 }
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct TryJoinGameRequest(Guid playerId, int gameId) : IFixedByteSize
+public readonly struct TryJoinGameRequest(int gameId) : IFixedByteSize
 {
-    public readonly Guid PlayerId = playerId;
     public readonly int GameId = gameId;
-    
-    public static int ByteSize => 16 + sizeof(int);
+    public static int ByteSize => sizeof(int);
 }
 
-[StructLayout(LayoutKind.Sequential)]
-public readonly struct TryCreateGameRequest(Guid playerId) : IFixedByteSize
-{
-    public readonly Guid PlayerId = playerId;
-    public static int ByteSize => 16; 
-}
-
-[StructLayout(LayoutKind.Sequential)]
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct IdentifyUserMessage(Guid playerId) : IFixedByteSize
 {
     public readonly Guid PlayerId = playerId;
     public static int ByteSize => 16;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct DrawRequestResponse(bool accepted) : IFixedByteSize 
+{
+    public readonly bool Accepted = accepted;
+    public static int ByteSize => sizeof(bool);
 }

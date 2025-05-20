@@ -2,23 +2,37 @@
 
 export enum FromServerMessageType
 {
+    //Initial Connection Message 
     SessionStartMessage = 0,
-    PlayerJoined = 1,
-    NewMoveMessage = 2,
-    InitialServerMessage = 3,
-    TryJoinGameResultMessage = 4,
-    GameCreatedOrUpdatedMessage = 5,
-    ActiveGamesMessage = 6,
-    TryCreateGameResultMessage = 7,
+
+    //Initial State for Connected Client 
+    InitialStateMessage = 1,
+
+    //Updating All User Messages
+    GameCreatedMessage = 2,
+
+    //Querying Responses 
+    ActiveGamesResponse = 3,
+    TryCreateGameResponse = 4,
+    TryJoinGameResponse = 5,
+
+    //Game State Updates 
+    NewMove = 7,
+    GameStatusChanged = 8,
+    DrawRequest = 9,
+    DrawRequestRejected = 10,
+    PlayerJoined = 11,
 }
 
 export enum GameStatus
 {
-    NoPlayers = 0, 
-    WaitingForPlayers = 2,
-    InProgress = 3,
-    Finished = 4,
-    Abandoned = 5
+    NoPlayers = 0,
+    WaitingForPlayers = 1,
+    InProgress = 2,
+    Abandoned = 3,
+    Player1Win = 4,
+    Player2Win = 5,
+    Draw = 6,
 }
 
 export interface WebSocketMessage {
@@ -31,10 +45,6 @@ export interface SessionStartMessage extends WebSocketMessage {
 export interface PlayerJoinedMessage extends WebSocketMessage { 
     playerId : string,
     playerName : string,
-}
-export interface NewMoveMessage extends WebSocketMessage {
-   move : CheckersMove,
-   forcedMovesInPosition : ForcedMove[], //array of bitboard indices 
 }
 export interface TryJoinGameResult extends WebSocketMessage {
     didJoinGame : boolean
@@ -69,7 +79,7 @@ export interface ActiveGamesMessage extends WebSocketMessage {
     activeGames : GameMetaData[]
 }
 
-export interface InitialServerMessage extends WebSocketMessage {
+export interface InitialStateMessage extends WebSocketMessage {
     activeGamesCount : number,
     activeGames : GameMetaData[]
     gameInfo : GameInfo | null,
@@ -77,13 +87,16 @@ export interface InitialServerMessage extends WebSocketMessage {
 
 type DecodeResult = WebSocketMessage | 
                     SessionStartMessage |
-                    PlayerJoinedMessage | 
-                    NewMoveMessage |    
-                    InitialServerMessage |
+                    PlayerJoinedMessage |
+                    InitialStateMessage |
                     TryJoinGameResult |
                     GameCreatedOrUpdatedMessage | 
                     ActiveGamesMessage | 
-                    TryCreateGameResultMessage;
+                    TryCreateGameResultMessage |
+                    NewMoveMessage | 
+                    GameStatusChangedMessage |
+                    DrawRequestMessage |
+                    DrawRequestRejectedMessage;
 
 function decodeSessionStartMessage(byteReader: ByteReader, version: number) : SessionStartMessage {
     return {
@@ -106,7 +119,7 @@ function decodePlayerJoined(byteReader: ByteReader, version: number): PlayerJoin
     }
 }
 
-function decodeForcedMoves(byteReader: ByteReader) : ForcedMove[] {
+export function decodeForcedMoves(byteReader: ByteReader) : ForcedMove[] {
     
     const forcedMovesInPositionCount = byteReader.readUint8();
     const forcedMovesInPosition = new Array<ForcedMove>(forcedMovesInPositionCount);
@@ -121,20 +134,6 @@ function decodeForcedMoves(byteReader: ByteReader) : ForcedMove[] {
 export interface ForcedMove {
     initialPosition : number,
     finalPosition: number,
-}
-
-
-function decodeNewMoveMessage(byteReader: ByteReader, version: number) :  NewMoveMessage {
-    
-    const move = byteReader.readCheckersMove();
-    const forcedMovesInPosition = decodeForcedMoves(byteReader);
-
-    return {
-        type : FromServerMessageType.NewMoveMessage,
-        version : version,
-        move : move,
-        forcedMovesInPosition : forcedMovesInPosition,
-    };
 }
 
 function decodeGameInfo(byteReader: ByteReader) : GameInfo {
@@ -182,19 +181,18 @@ function decodeTryJoinGameResult(byteReader: ByteReader, version: number) : TryJ
     }
     
     return {
-        type : FromServerMessageType.TryJoinGameResultMessage,
+        type : FromServerMessageType.TryJoinGameResponse,
         version : version,
         didJoinGame : Boolean(byteReader.readUint8()),
         gameInfo : gameInfoMessage,
     };
 }
 
-
 function decodeGameCreatedOrUpdated(byteReader: ByteReader, version: number) : GameCreatedOrUpdatedMessage {
 
     const gameMetaData = decodeGamesMetaData(byteReader);
     return {
-        type : FromServerMessageType.GameCreatedOrUpdatedMessage,
+        type : FromServerMessageType.GameCreatedMessage,
         version : version,
         GameMetaData : gameMetaData[0],
     };
@@ -202,7 +200,7 @@ function decodeGameCreatedOrUpdated(byteReader: ByteReader, version: number) : G
 
 function decodeActiveGamesMessage(byteReader: ByteReader, version: number) : ActiveGamesMessage {
     return {
-        type: FromServerMessageType.ActiveGamesMessage,
+        type: FromServerMessageType.ActiveGamesResponse,
         version: version,
         activeGames: decodeGamesMetaData(byteReader),
     }
@@ -242,7 +240,7 @@ function decodeInitialServerMessage(byteReader: ByteReader, version: number): De
     }
     
     return {
-        type : FromServerMessageType.InitialServerMessage,
+        type : FromServerMessageType.InitialStateMessage,
         version : version,
         activeGamesCount : activeGames.length,
         activeGames : activeGames,
@@ -255,10 +253,57 @@ export interface TryCreateGameResultMessage extends WebSocketMessage {
 }
 function decodeTryCreateGameResult(byteReader: ByteReader, version: number) : TryCreateGameResultMessage {
     return {
-        type : FromServerMessageType.TryCreateGameResultMessage,
+        type : FromServerMessageType.TryCreateGameResponse,
         version : version,
         gameId : byteReader.readInt32(),
     }
+}
+
+export interface NewMoveMessage extends WebSocketMessage {
+    move : CheckersMove,
+    forcedMovesInPosition : ForcedMove[], //array of bitboard indices
+}
+function decodeNewMoveMessage(byteReader: ByteReader, version: number) : NewMoveMessage {
+
+    const move = byteReader.readCheckersMove();
+    const forcedMovesInPosition = decodeForcedMoves(byteReader);
+    return {
+        type : FromServerMessageType.NewMove,
+        version : version,
+        move : move,
+        forcedMovesInPosition : forcedMovesInPosition,
+    };
+}
+
+export interface GameStatusChangedMessage extends WebSocketMessage {
+    gameStatus : GameStatus,
+}
+function decodeGameStatusChanged(byteReader: ByteReader, version: number) : GameStatusChangedMessage  {
+    const gameStatus = byteReader.readUint8() as GameStatus;
+    return {
+        type : FromServerMessageType.GameStatusChanged,
+        version : version,
+        gameStatus : gameStatus,
+    };
+}
+
+
+export interface DrawRequestMessage extends WebSocketMessage {
+}
+function decodeDrawRequest(byteReader: ByteReader, version: number) : DrawRequestMessage  {
+    return {
+        type : FromServerMessageType.DrawRequest,
+        version : version,
+    };
+}
+
+export interface DrawRequestRejectedMessage extends WebSocketMessage {
+}
+function decodeDrawRequestRejected(byteReader: ByteReader, version: number): DrawRequestRejectedMessage {
+    return {
+        type : FromServerMessageType.DrawRequestRejected,
+        version : version,
+    };
 }
 
 export function decode(arrayBuffer : ArrayBuffer) : DecodeResult {
@@ -268,22 +313,27 @@ export function decode(arrayBuffer : ArrayBuffer) : DecodeResult {
     const type = byteReader.readUint16() as FromServerMessageType;
     
     switch (type) {
-
+        case FromServerMessageType.NewMove:
+            return decodeNewMoveMessage(byteReader, version);
+        case FromServerMessageType.GameStatusChanged:
+            return decodeGameStatusChanged(byteReader, version);
+        case FromServerMessageType.DrawRequest:
+            return decodeDrawRequest(byteReader, version);
+        case FromServerMessageType.DrawRequestRejected:
+            return decodeDrawRequestRejected(byteReader, version);
         case FromServerMessageType.SessionStartMessage:
             return decodeSessionStartMessage(byteReader , version);
         case FromServerMessageType.PlayerJoined:
-            return decodePlayerJoined(byteReader, version); 
-        case FromServerMessageType.NewMoveMessage:
-            return decodeNewMoveMessage(byteReader, version); 
-        case FromServerMessageType.InitialServerMessage:
+            return decodePlayerJoined(byteReader, version);
+        case FromServerMessageType.InitialStateMessage:
             return decodeInitialServerMessage(byteReader, version);
-        case FromServerMessageType.TryJoinGameResultMessage:
+        case FromServerMessageType.TryJoinGameResponse:
             return decodeTryJoinGameResult(byteReader, version);
-        case FromServerMessageType.GameCreatedOrUpdatedMessage:
+        case FromServerMessageType.GameCreatedMessage:
             return decodeGameCreatedOrUpdated(byteReader, version);
-        case FromServerMessageType.ActiveGamesMessage: 
+        case FromServerMessageType.ActiveGamesResponse: 
             return decodeActiveGamesMessage(byteReader, version);
-        case FromServerMessageType.TryCreateGameResultMessage:    
+        case FromServerMessageType.TryCreateGameResponse:    
             return decodeTryCreateGameResult(byteReader, version);
             
         default: throw new Error("Unknown type '" + type + "'");   

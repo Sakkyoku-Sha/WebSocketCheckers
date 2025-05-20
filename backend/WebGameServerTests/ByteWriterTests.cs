@@ -84,7 +84,7 @@ public class ByteWriterTests
         var writer = new ByteWriter(buffer);
 
         var guid = Guid.NewGuid();
-        writer.WriteGuid(ref guid);
+        writer.WriteGuid(guid);
 
         var guidBytes = guid.ToByteArray();
         Assert.That(buffer[..16], Is.EqualTo(guidBytes));
@@ -98,7 +98,7 @@ public class ByteWriterTests
         var writer = new ByteWriter(buffer);
 
         var input = "AB";
-        writer.WriteLengthPrefixedStringUTF16LE(ref input);
+        writer.WriteLengthPrefixedStringUTF16LE(input);
 
         // Length-prefixed with 4 bytes (2 UTF-16 chars = 4 bytes)
         Assert.That(buffer[0], Is.EqualTo(4)); // 4 bytes for "AB" in UTF16LE
