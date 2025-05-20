@@ -1,7 +1,5 @@
-"use client"
 import { MouseEventHandler, RefObject, useState, useRef, useMemo, JSX, Ref, useEffect } from 'react';
 import {CheckersMove} from './page';
-import {empty} from "@apollo/client";
 import {ForcedMove, GameInfo} from "@/app/WebSocket/Decoding";
 
 enum GameBoardSquare{

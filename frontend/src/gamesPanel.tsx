@@ -1,7 +1,6 @@
-"use client";
 import React, {useEffect, useRef, useState} from 'react';
-import Subscriptions from "@/app/Events/Events";
-import {ActiveGamesMessage, GameCreatedOrUpdatedMessage, GameMetaData} from "@/app/WebSocket/Decoding";
+import Subscriptions from "@/Events/Events";
+import {ActiveGamesMessage, GameCreatedOrUpdatedMessage, GameMetaData} from "@/WebSocket/Decoding";
 
 export default function GamesPanel(props : {
     onCreateGameClick : () => void;

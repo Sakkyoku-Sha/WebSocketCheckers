@@ -5,7 +5,7 @@
     PlayerJoinedMessage,
     SessionStartMessage,
     TryJoinGameResult
-} from "@/app/WebSocket/Decoding";
+} from "@/WebSocket/Decoding";
 
 type Handler<T> = (payload: T) => void;
 

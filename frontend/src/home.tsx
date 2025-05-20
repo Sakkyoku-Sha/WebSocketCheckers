@@ -1,4 +1,3 @@
-"use client"
 import React, {useEffect, useRef, useState} from "react";
 import {
     encodeActiveGamesMessage,
@@ -25,9 +24,9 @@ import {
     TryJoinGameResult,
     FromServerMessageType, NewMoveMessage, GameStatusChangedMessage
 
-} from "@/app/WebSocket/Decoding";
+} from "@/WebSocket/Decoding";
 
-import Subscriptions from "@/app/Events/Events";
+import Subscriptions from "@/Events/Events";
 
 export interface CheckersMove{
   fromIndex: number;      
@@ -106,14 +105,8 @@ export default function Home() {
             
             currentGame.current.forcedMoves = newMoveMessage.forcedMovesInPosition;
             currentGame.current.history.push(newMoveMessage.move);
-
-            if(newMoveMessage.gameDidFinish) {
-                setMoveNumber(1);
-                currentGame.current.gameStatus = GameStatus.Player1Win;
-            }
-            else {
-                setMoveNumber(currentGame.current.history.length - 1);
-            }
+            setMoveNumber(currentGame.current.history.length - 1);
+            
             break;
         case FromServerMessageType.GameStatusChanged:
             const gameStatusMessage = (resultingMessage as GameStatusChangedMessage); 
