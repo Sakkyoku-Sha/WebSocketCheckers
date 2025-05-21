@@ -1,3 +1,48 @@
 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="50" cy="50" r="40" fill="burlywood" stroke="black" stroke-width="3"/>
+  <defs>
+    <!-- Gradient for the main body of the piece -->
+    <radialGradient id="checkerBodyGradientKing" cx="50%" cy="40%" r="60%" fx="50%" fy="40%">
+      <stop offset="0%" style="stop-color:rgb(255,255,255);stop-opacity:1" /> <!-- Pure White -->
+      <stop offset="40%" style="stop-color:rgb(230,230,230);stop-opacity:1" /> <!-- Light Grey -->
+      <stop offset="100%" style="stop-color:rgb(200,200,200);stop-opacity:1" /> <!-- Medium Light Grey -->
+    </radialGradient>
+
+    <!-- Gradient for a subtle top highlight -->
+    <radialGradient id="topHighlightKing" cx="50%" cy="40%" r="50%" fx="50%" fy="30%">
+      <stop offset="0%" style="stop-color:white;stop-opacity:0.2" />
+      <stop offset="100%" style="stop-color:white;stop-opacity:0" />
+    </radialGradient>
+
+    <!-- Gradients for the crown -->
+    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:rgb(255,235,150);stop-opacity:1" /> <!-- Lighter Gold -->
+      <stop offset="50%" style="stop-color:rgb(255,215,0);stop-opacity:1" />   <!-- Gold -->
+      <stop offset="100%" style="stop-color:rgb(218,165,32);stop-opacity:1" /> <!-- Darker Gold (Goldenrod) -->
+    </linearGradient>
+
+    <radialGradient id="jewelGradient" cx="50%" cy="40%" r="50%" fx="60%" fy="35%">
+      <stop offset="0%" style="stop-color:rgb(255,100,100);stop-opacity:1" /> <!-- Lighter Red -->
+      <stop offset="100%" style="stop-color:rgb(180,0,0);stop-opacity:1" />   <!-- Dark Red -->
+    </radialGradient>
+
+    <linearGradient id="goldHighlightGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:rgba(255,255,255,0.6)" />
+      <stop offset="100%" style="stop-color:rgba(255,235,150,0.3)" />
+    </linearGradient>
+
+  </defs>
+
+  <!-- King Piece Group -->
+  <g id="king-checker">
+    <!-- Base shadow -->
+    <circle cx="50" cy="52" r="40" fill="rgba(0,0,0,0.2)" />
+
+    <!-- Main Body -->
+    <circle cx="50" cy="50" r="40" fill="url(#checkerBodyGradientKing)" stroke="rgb(60,30,10)" stroke-width="2"/>
+
+    <circle cx="50" cy="50" r="30" fill="none" stroke="rgba(60,30,10,0.5)" stroke-width="1.5"/>
+    <circle cx="50" cy="50" r="20" fill="none" stroke="rgba(60,30,10,0.3)" stroke-width="1"/>
+    <circle cx="50" cy="50" r="38" fill="url(#topHighlightKing)" />
+    
+  </g>
 </svg>

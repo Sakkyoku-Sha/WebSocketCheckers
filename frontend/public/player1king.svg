@@ -1,10 +1,85 @@
 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <!-- Base Checkers Piece -->
-  <circle cx="50" cy="50" r="40" fill="burlywood" stroke="black" stroke-width="3"/>
+  <defs>
+    <!-- Gradient for the main body of the piece -->
+    <radialGradient id="checkerBodyGradientKing" cx="50%" cy="40%" r="60%" fx="50%" fy="40%">
+      <stop offset="0%" style="stop-color:rgb(255,255,255);stop-opacity:1" /> <!-- Pure White -->
+      <stop offset="40%" style="stop-color:rgb(230,230,230);stop-opacity:1" /> <!-- Light Grey -->
+      <stop offset="100%" style="stop-color:rgb(200,200,200);stop-opacity:1" /> <!-- Medium Light Grey -->
+    </radialGradient>
 
-  <!-- Crown -->
-  <polygon points="30,60 40,35 45,50 50,35 55,50 60,35 70,60" fill="gold" stroke="black" stroke-width="2"/>
-  
-  <!-- Crown Base -->
-  <rect x="30" y="60" width="40" height="5" fill="gold" stroke="black" stroke-width="2"/>
+    <!-- Gradient for a subtle top highlight -->
+    <radialGradient id="topHighlightKing" cx="50%" cy="40%" r="50%" fx="50%" fy="30%">
+      <stop offset="0%" style="stop-color:white;stop-opacity:0.2" />
+      <stop offset="100%" style="stop-color:white;stop-opacity:0" />
+    </radialGradient>
+
+    <!-- Gradients for the crown -->
+    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:rgb(255,235,150);stop-opacity:1" /> <!-- Lighter Gold -->
+      <stop offset="50%" style="stop-color:rgb(255,215,0);stop-opacity:1" />   <!-- Gold -->
+      <stop offset="100%" style="stop-color:rgb(218,165,32);stop-opacity:1" /> <!-- Darker Gold (Goldenrod) -->
+    </linearGradient>
+
+    <radialGradient id="jewelGradient" cx="50%" cy="40%" r="50%" fx="60%" fy="35%">
+      <stop offset="0%" style="stop-color:rgb(255,100,100);stop-opacity:1" /> <!-- Lighter Red -->
+      <stop offset="100%" style="stop-color:rgb(180,0,0);stop-opacity:1" />   <!-- Dark Red -->
+    </radialGradient>
+
+    <linearGradient id="goldHighlightGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:rgba(255,255,255,0.6)" />
+      <stop offset="100%" style="stop-color:rgba(255,235,150,0.3)" />
+    </linearGradient>
+
+  </defs>
+
+  <!-- King Piece Group -->
+  <g id="king-checker">
+    <!-- Base shadow -->
+    <circle cx="50" cy="52" r="40" fill="rgba(0,0,0,0.2)" />
+
+    <!-- Main Body -->
+    <circle cx="50" cy="50" r="40" fill="url(#checkerBodyGradientKing)" stroke="rgb(60,30,10)" stroke-width="2"/>
+
+    <circle cx="50" cy="50" r="30" fill="none" stroke="rgba(60,30,10,0.5)" stroke-width="1.5"/>
+    <circle cx="50" cy="50" r="20" fill="none" stroke="rgba(60,30,10,0.3)" stroke-width="1"/>
+    <circle cx="50" cy="50" r="38" fill="url(#topHighlightKing)" />
+
+    <!-- CROWN (Revised) -->
+    <g id="crown" transform="translate(0)"> <!-- Slightly more lift for the new crown -->
+      <!-- Crown Base -->
+      <rect x="27" y="48" width="46" height="7" rx="2" ry="2" fill="url(#goldGradient)" stroke="rgb(139,101,8)" stroke-width="1.5"/>
+      <!-- Shadow under crown base -->
+      <rect x="27" y="54" width="46" height="2" rx="1" ry="1" fill="rgba(0,0,0,0.2)" />
+
+      <!-- Crown Points - using polygons for simpler, classic shapes -->
+      <!-- Central Point -->
+      <polygon points="50,28 45,48 55,48" fill="url(#goldGradient)" stroke="rgb(139,101,8)" stroke-width="1"/>
+      <polygon points="50,30 46.5,47.5 53.5,47.5" fill="url(#goldHighlightGradient)" /> <!-- Highlight -->
+
+      <!-- Left Side Point -->
+      <polygon points="35,34 31,48 39,48" fill="url(#goldGradient)" stroke="rgb(139,101,8)" stroke-width="1"/>
+      <polygon points="35,35.5 32.5,47.5 37.5,47.5" fill="url(#goldHighlightGradient)" /> <!-- Highlight -->
+
+      <!-- Right Side Point -->
+      <polygon points="65,34 61,48 69,48" fill="url(#goldGradient)" stroke="rgb(139,101,8)" stroke-width="1"/>
+      <polygon points="65,35.5 62.5,47.5 67.5,47.5" fill="url(#goldHighlightGradient)" /> <!-- Highlight -->
+
+      <!-- Smaller Intermediate Point (Left) -->
+      <polygon points="42.5,38 40,48 45,48" fill="url(#goldGradient)" stroke="rgb(139,101,8)" stroke-width="0.75"/>
+      <polygon points="42.5,39 41,47.5 44,47.5" fill="url(#goldHighlightGradient)" opacity="0.8"/> <!-- Highlight -->
+
+      <!-- Smaller Intermediate Point (Right) -->
+      <polygon points="57.5,38 55,48 60,48" fill="url(#goldGradient)" stroke="rgb(139,101,8)" stroke-width="0.75"/>
+      <polygon points="57.5,39 56,47.5 59,47.5" fill="url(#goldHighlightGradient)" opacity="0.8"/> <!-- Highlight -->
+
+      <!-- Studs on the Crown Band -->
+      <circle cx="32" cy="51.5" r="1.5" fill="rgb(255,223,100)" stroke="rgb(139,101,8)" stroke-width="0.5"/>
+      <circle cx="41" cy="51.5" r="1.5" fill="rgb(255,223,100)" stroke="rgb(139,101,8)" stroke-width="0.5"/>
+      <!-- Central stud covered by jewel, so skip or make it part of jewel base if desired -->
+      <circle cx="59" cy="51.5" r="1.5" fill="rgb(255,223,100)" stroke="rgb(139,101,8)" stroke-width="0.5"/>
+      <circle cx="68" cy="51.5" r="1.5" fill="rgb(255,223,100)" stroke="rgb(139,101,8)" stroke-width="0.5"/>
+
+
+    </g>
+  </g>
 </svg>

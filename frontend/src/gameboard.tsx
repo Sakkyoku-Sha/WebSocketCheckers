@@ -171,55 +171,70 @@ const determineClassNames = (square: GameBoardSquare, forcedSquareIndex : number
     return classNameExtension;
 }
 
+const isBitSet = (bitField: bigint, bitIndex: number): boolean => {
+    return (bitField & (BigInt(1) << BigInt(bitIndex))) !== BigInt(0);
+}
+
 const ApplyMove = (move : CheckersMove, gameBoard : number[], moveNumber : number) : void => {
     
-    if (move.promoted) {
-        gameBoard[move.toIndex] = moveNumber % 2 === 0 ? GameBoardSquare.PLAYER1KING : GameBoardSquare.PLAYER2KING;
-    } else {
-        gameBoard[move.toIndex] = moveNumber % 2 === 0 ? GameBoardSquare.PLAYER1PAWN : GameBoardSquare.PLAYER2PAWN;
-    }
+    const originalPiece = gameBoard[move.fromIndex];
     gameBoard[move.fromIndex] = GameBoardSquare.EMPTY;
     
-    const capturedPawns = move.capturedPawns;
-    const capturedKings = move.capturedKings;
+    let newPiece: GameBoardSquare;
+    if (move.promoted) {
+        newPiece = moveNumber % 2 === 0 ? GameBoardSquare.PLAYER1KING : GameBoardSquare.PLAYER2KING;
+    } else {
+       
+        if (originalPiece === GameBoardSquare.PLAYER1KING || originalPiece === GameBoardSquare.PLAYER2KING) {
+            newPiece = originalPiece;
+        } else {
+            newPiece = moveNumber % 2 === 0 ? GameBoardSquare.PLAYER1PAWN : GameBoardSquare.PLAYER2PAWN;
+        }
+    }
+    gameBoard[move.toIndex] = newPiece;
     
+    // Remove captured pieces
+    const capturedPieces = move.capturedPawns | move.capturedKings;
     for (let bitIndex = 0; bitIndex < 64; bitIndex++) {
-        if (isBitSet(capturedPawns, bitIndex) || isBitSet(capturedKings, bitIndex)) {
+        if (isBitSet(capturedPieces, bitIndex)) {
             gameBoard[bitIndex] = GameBoardSquare.EMPTY;
         }
     }
 }
 
-function isBitSet(value: bigint, bitIndex: number): boolean {
-    return ((value >> BigInt(bitIndex)) & BigInt(1)) !== BigInt(0);
-}
-
-
 const UndoMove = (move : CheckersMove, gameBoard : number[], moveNumber : number) : void => {
-    
-    const isPlayer1Turn = moveNumber % 2 === 0;
-    gameBoard[move.fromIndex] = gameBoard[move.toIndex];
-    if (move.promoted) {
-        gameBoard[move.toIndex] = isPlayer1Turn ? GameBoardSquare.PLAYER1KING : GameBoardSquare.PLAYER2KING;
-    } else {
-        gameBoard[move.toIndex] = isPlayer1Turn ? GameBoardSquare.PLAYER1PAWN : GameBoardSquare.PLAYER2PAWN;
-    }
-    
+   
+    const movedPiece = gameBoard[move.toIndex];
     gameBoard[move.toIndex] = GameBoardSquare.EMPTY;
-
-    //Todo send captured kings back to front end to know if we should recover a king or pawn.
-    const toRecoverPawn = isPlayer1Turn ? GameBoardSquare.PLAYER2PAWN : GameBoardSquare.PLAYER1PAWN;
-    const toRecoverKing = isPlayer1Turn ? GameBoardSquare.PLAYER2KING : GameBoardSquare.PLAYER1KING;
     
+    const isPlayer1Move = moveNumber % 2 === 0;
+    let restoredPiece: GameBoardSquare;
+    
+    if (move.promoted) {
+        
+        restoredPiece = isPlayer1Move ? GameBoardSquare.PLAYER1PAWN : GameBoardSquare.PLAYER2PAWN;
+    } else {
+        
+        if (movedPiece === GameBoardSquare.PLAYER1KING || movedPiece === GameBoardSquare.PLAYER2KING) {
+            restoredPiece = movedPiece;
+        } else {
+            restoredPiece = isPlayer1Move ? GameBoardSquare.PLAYER1PAWN : GameBoardSquare.PLAYER2PAWN;
+        }
+    }
+    gameBoard[move.fromIndex] = restoredPiece;
+
+    // Restore captured pieces
+    const toRecoverPawn = isPlayer1Move ? GameBoardSquare.PLAYER2PAWN : GameBoardSquare.PLAYER1PAWN;
+    const toRecoverKing = isPlayer1Move ? GameBoardSquare.PLAYER2KING : GameBoardSquare.PLAYER1KING;
     const capturedPawns = move.capturedPawns;
     const capturedKings = move.capturedKings; 
-
+    
     for (let bitIndex = 0; bitIndex < 64; bitIndex++) {
         if (isBitSet(capturedPawns, bitIndex)) {
             gameBoard[bitIndex] = toRecoverPawn;
         }
         else if(isBitSet(capturedKings, bitIndex)) {
-            gameBoard[bitIndex] = toRecoverKing
+            gameBoard[bitIndex] = toRecoverKing;
         }
     }
 }
@@ -263,5 +278,4 @@ const initialGameState = ([
     0, 1, 0, 1, 0, 1, 0, 1,  // Row 6
     1, 0, 1, 0, 1, 0, 1, 0,  // Row 7
 ]);
-
 

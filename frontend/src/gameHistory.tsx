@@ -42,14 +42,17 @@ function toBoardNotation(x : number, y : number) {
 }
 
 const GameHistoryItem = (props : GameHistoryItemProps) => {
-    
-      const { highlight, move, onClick } = props;
+        
+      const move = props.move;
+      const highlight = props.highlight;
+      const onClick = props.onClick;
+      
       const fromNotation = toBoardNotation(move.fromIndex % 8, Math.floor(move.fromIndex / 8))
       const toNotation = toBoardNotation(move.toIndex % 8, Math.floor(move.toIndex / 8));
       
       const active = highlight ? "active" : "";
       
-      const capturedSquares = move.capturedPieces;
+      const capturedSquares = move.capturedPawns | move.capturedKings;
       let capturedPiecesXY: { x: number; y: number }[] = [];
   
       if (capturedSquares !== BigInt(0)) {

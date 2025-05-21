@@ -119,6 +119,32 @@ public class GameLogicTests
     }
     
     [Test]
+    public void SimplePromotionTestMoves()
+    {
+        var boardString = new string[]
+        {
+            "........", // row 0
+            "p.....k.", // row 1
+            "........", // row 2: 
+            "........", // row 3: 
+            "........", // row 4
+            "........", // row 5
+            "........", // row 6
+            "........", // row 7
+        };
+        var state = CreateBoardFromStringArray(boardString);
+        var pawnMoveState = new GameState(state); 
+        var pawnMove = GameLogic.TryApplyMove(ref pawnMoveState, GameState.GetBitIndex(0, 1), GameState.GetBitIndex(1, 0));
+        Assert.That(pawnMove.Success, Is.True);
+        Assert.That(pawnMove.Promoted, Is.True);
+        
+        var kingMoveState = new GameState(state);
+        var kingMove = GameLogic.TryApplyMove(ref kingMoveState, GameState.GetBitIndex(6, 1), GameState.GetBitIndex(7, 0));
+        Assert.That(kingMove.Success, Is.True);
+        Assert.That(kingMove.Promoted, Is.False);
+    }
+    
+    [Test]
     public void SimpleValidPawnJumpMoves()
     {
         var boardString = new string[]

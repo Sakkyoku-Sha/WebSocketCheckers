@@ -1,3 +1,32 @@
 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="50" cy="50" r="40" fill="saddlebrown" stroke="black" stroke-width="3"/>
+  <defs>
+    <!-- Gradient for the main body of the piece -->
+    <radialGradient id="checkerBodyGradient" cx="50%" cy="40%" r="60%" fx="50%" fy="40%">
+      <stop offset="0%" style="stop-color:rgb(160,82,45);stop-opacity:1" /> <!-- Lighter saddlebrown -->
+      <stop offset="30%" style="stop-color:rgb(139,69,19);stop-opacity:1" /> <!-- Saddlebrown -->
+      <stop offset="100%" style="stop-color:rgb(100,49,14);stop-opacity:1" /> <!-- Darker saddlebrown -->
+    </radialGradient>
+
+    <!-- Gradient for a subtle top highlight -->
+    <radialGradient id="topHighlight" cx="50%" cy="40%" r="50%" fx="50%" fy="30%">
+      <stop offset="0%" style="stop-color:white;stop-opacity:0.2" />
+      <stop offset="100%" style="stop-color:white;stop-opacity:0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Piece Group -->
+  <g id="regular-checker">
+    <!-- Base shadow (subtle, creates depth) -->
+    <circle cx="50" cy="52" r="40" fill="rgba(0,0,0,0.2)" />
+
+    <!-- Main Body -->
+    <circle cx="50" cy="50" r="40" fill="url(#checkerBodyGradient)" stroke="rgb(60,30,10)" stroke-width="2"/>
+    
+    <!-- Top surface rings -->
+    <circle cx="50" cy="50" r="30" fill="none" stroke="rgba(60,30,10,0.5)" stroke-width="1.5"/>
+    <circle cx="50" cy="50" r="20" fill="none" stroke="rgba(60,30,10,0.3)" stroke-width="1"/>
+
+    <!-- Top surface subtle gloss -->
+    <circle cx="50" cy="50" r="38" fill="url(#topHighlight)" />
+  </g>
 </svg>

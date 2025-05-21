@@ -46,8 +46,9 @@ public static class GameLogic
         }
         
         //Promotion Logic. 
-        var shouldPromote = ShouldPromote(toBitIndex, state.IsPlayer1Turn) 
-                            || (validationResult.JumpInfo?.jumpedIntoPromotionSquare ?? false);
+        var shouldPromote = IsPromotionSquare(toBitIndex, state.IsPlayer1Turn);
+        shouldPromote |= validationResult.JumpInfo?.jumpedIntoPromotionSquare == true;
+        shouldPromote &= !wasKing;
  
         if (shouldPromote)
         {
@@ -246,7 +247,7 @@ public static class GameLogic
                  && (to == f.InitialPosition || ((allPieces >> to) & 1) == 0))
                 {
                     ulong nextCap = f.CapturedPieces | (1UL << over);
-                    bool nextKing = f.IsKing || ShouldPromote(to, isP1);
+                    bool nextKing = f.IsKing || IsPromotionSquare(to, isP1);
                     
                     work[workCount].EndOfPath = to;
                     work[workCount].IsKing = nextKing;
@@ -267,7 +268,7 @@ public static class GameLogic
                  && (to == f.InitialPosition || ((allPieces >> to) & 1) == 0))
                 {
                     ulong nextCap = f.CapturedPieces | (1UL << over);
-                    bool nextKing = f.IsKing || ShouldPromote(to, isP1);
+                    bool nextKing = f.IsKing || IsPromotionSquare(to, isP1);
                     
                     work[workCount].EndOfPath = to;
                     work[workCount].IsKing = nextKing;
@@ -288,7 +289,7 @@ public static class GameLogic
                  && (to == f.InitialPosition || ((allPieces >> to) & 1) == 0))
                 {
                     ulong nextCap = f.CapturedPieces | (1UL << over);
-                    bool nextKing = f.IsKing || ShouldPromote(to, isP1);
+                    bool nextKing = f.IsKing || IsPromotionSquare(to, isP1);
                     
                     work[workCount].EndOfPath = to;
                     work[workCount].IsKing = nextKing;
@@ -309,7 +310,7 @@ public static class GameLogic
                  && (to == f.InitialPosition || ((allPieces >> to) & 1) == 0))
                 {
                     ulong nextCap = f.CapturedPieces | (1UL << over);
-                    bool nextKing = f.IsKing || ShouldPromote(to, isP1);
+                    bool nextKing = f.IsKing || IsPromotionSquare(to, isP1);
                    
                     work[workCount].EndOfPath = to;
                     work[workCount].IsKing = nextKing;
@@ -331,7 +332,7 @@ public static class GameLogic
         return resCount;
     }
     
-    private static bool ShouldPromote(int jumpIndex, bool player1Turn)
+    private static bool IsPromotionSquare(int jumpIndex, bool player1Turn)
     {
         return player1Turn ? jumpIndex < 8 : jumpIndex > 55;
     }
