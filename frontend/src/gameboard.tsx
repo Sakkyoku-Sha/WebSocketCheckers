@@ -1,5 +1,6 @@
 import { MouseEventHandler, RefObject, useState, useRef, useEffect } from 'react';
-import {ForcedMove, CheckersMove, GameInfo} from "@/WebSocket/Decoding";
+import {ForcedMove, GameInfo} from "@/WebSocket/Decoding";
+import {CheckersMove} from "@/WebSocket/ByteReader";
 
 enum GameBoardSquare{
     EMPTY = 0,
@@ -170,29 +171,55 @@ const determineClassNames = (square: GameBoardSquare, forcedSquareIndex : number
     return classNameExtension;
 }
 
-const ApplyMove = (move : CheckersMove, gameBoard : number[]) : void => {
-    gameBoard[move.toIndex] = gameBoard[move.fromIndex];
+const ApplyMove = (move : CheckersMove, gameBoard : number[], moveNumber : number) : void => {
+    
+    if (move.promoted) {
+        gameBoard[move.toIndex] = moveNumber % 2 === 0 ? GameBoardSquare.PLAYER1KING : GameBoardSquare.PLAYER2KING;
+    } else {
+        gameBoard[move.toIndex] = moveNumber % 2 === 0 ? GameBoardSquare.PLAYER1PAWN : GameBoardSquare.PLAYER2PAWN;
+    }
     gameBoard[move.fromIndex] = GameBoardSquare.EMPTY;
-
-    const capturedSquares = move.capturedPieces; 
-
+    
+    const capturedPawns = move.capturedPawns;
+    const capturedKings = move.capturedKings;
+    
     for (let bitIndex = 0; bitIndex < 64; bitIndex++) {
-        if ((capturedSquares & (BigInt(1) << BigInt(bitIndex))) !== BigInt(0)) {
+        if (isBitSet(capturedPawns, bitIndex) || isBitSet(capturedKings, bitIndex)) {
             gameBoard[bitIndex] = GameBoardSquare.EMPTY;
         }
     }
 }
-const UndoMove = (move : CheckersMove, isPlayer1Turn : boolean, gameBoard : number[]) : void => {
+
+function isBitSet(value: bigint, bitIndex: number): boolean {
+    return ((value >> BigInt(bitIndex)) & BigInt(1)) !== BigInt(0);
+}
+
+
+const UndoMove = (move : CheckersMove, gameBoard : number[], moveNumber : number) : void => {
+    
+    const isPlayer1Turn = moveNumber % 2 === 0;
     gameBoard[move.fromIndex] = gameBoard[move.toIndex];
+    if (move.promoted) {
+        gameBoard[move.toIndex] = isPlayer1Turn ? GameBoardSquare.PLAYER1KING : GameBoardSquare.PLAYER2KING;
+    } else {
+        gameBoard[move.toIndex] = isPlayer1Turn ? GameBoardSquare.PLAYER1PAWN : GameBoardSquare.PLAYER2PAWN;
+    }
+    
     gameBoard[move.toIndex] = GameBoardSquare.EMPTY;
 
     //Todo send captured kings back to front end to know if we should recover a king or pawn.
-    const toRecover = isPlayer1Turn ? GameBoardSquare.PLAYER2PAWN : GameBoardSquare.PLAYER1PAWN;
-    const capturedSquares = move.capturedPieces; 
+    const toRecoverPawn = isPlayer1Turn ? GameBoardSquare.PLAYER2PAWN : GameBoardSquare.PLAYER1PAWN;
+    const toRecoverKing = isPlayer1Turn ? GameBoardSquare.PLAYER2KING : GameBoardSquare.PLAYER1KING;
+    
+    const capturedPawns = move.capturedPawns;
+    const capturedKings = move.capturedKings; 
 
     for (let bitIndex = 0; bitIndex < 64; bitIndex++) {
-        if ((capturedSquares & (BigInt(1) << BigInt(bitIndex))) !== BigInt(0)) {
-            gameBoard[bitIndex] = toRecover;
+        if (isBitSet(capturedPawns, bitIndex)) {
+            gameBoard[bitIndex] = toRecoverPawn;
+        }
+        else if(isBitSet(capturedKings, bitIndex)) {
+            gameBoard[bitIndex] = toRecoverKing
         }
     }
 }
@@ -208,13 +235,13 @@ const PlayMoves = (currentIndex : number, targetIndex : number, moves : Checkers
 
     while(currentIndex >= 0 && currentIndex > targetIndex){
         move = moves[currentIndex];
-        UndoMove(move, currentIndex%2 == 0, nextState);
+        UndoMove(move, nextState, currentIndex);
         currentIndex--; 
     }
     while(currentIndex < moves.length && currentIndex < targetIndex){
         currentIndex++;
         move = moves[currentIndex];
-        ApplyMove(move, nextState);
+        ApplyMove(move, nextState, currentIndex);
     }
     
     return nextState;

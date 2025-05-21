@@ -99,8 +99,9 @@
         const fromIndex = this.readUint8();         // byte FromIndex      (1 byte)
         const toIndex = this.readUint8();           // byte ToIndex        (1 byte)
         const promotedByte = this.readUint8();      // bool Promoted       (1 byte)
-        const capturedPieces = this.readBigUint64();  // ulong CapturedPieces (8 bytes)
-        // Total: 1 + 1 + 1 + 8 = 11 bytes
+        const capturedPawns = this.readBigUint64();  // ulong CapturedPieces (8 bytes)
+        const capturedKings = this.readBigUint64();  // ulong CapturedKings (8 bytes)
+        // Total: 1 + 1 + 1 + 8 = 19 bytes
 
         // Convert the byte representation of the boolean
         const promoted = promotedByte !== 0;
@@ -109,7 +110,8 @@
             fromIndex : fromIndex,
             toIndex : toIndex,
             promoted : promoted,
-            capturedPieces : capturedPieces
+            capturedPawns : capturedPawns,
+            capturedKings : capturedKings
         };
     }
 
@@ -200,15 +202,17 @@
  *     byte FromIndex,       // 1 byte
  *     byte ToIndex,         // 1 byte
  *     bool Promoted,        // 1 byte (usually)
- *     ulong CapturedPieces   // 8 bytes
+ *     ulong CapturedPawns   // 8 bytes
+ *     ulong CapturedKings   // 8 bytes
  * )
- * Total Size = 1 + 1 + 1 + 8 = 11 bytes.
+ * Total Size = 1 + 1 + 1 + 8 + 8 = 19 bytes.
  */
 
-export const CHECKERS_MOVE_BYTE_SIZE = 11;
-export interface CheckersMove {
+export const CHECKERS_MOVE_BYTE_SIZE = 19;
+export interface CheckersMove{
     fromIndex: number;
     toIndex: number;
     promoted: boolean;
-    capturedPieces: bigint;
+    capturedPawns : bigint;
+    capturedKings : bigint;
 }

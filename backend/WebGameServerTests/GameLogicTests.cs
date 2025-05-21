@@ -395,7 +395,43 @@ public class GameLogicTests
         Assert.IsFalse(GameState.IsBitSet(state.Player2Kings, GameState.GetBitIndex(1,2)));
         Assert.IsFalse(GameState.IsBitSet(state.Player2Kings, GameState.GetBitIndex(3,2)));
 
-        var capturedPiecesBoard = result.CapturedPieces;
+        var capturedPiecesBoard = result.CapturedPawns;
+        Assert.IsTrue(GameState.IsBitSet(capturedPiecesBoard, GameState.GetBitIndex(1,4))); //Removed all jumped pieces 
+        Assert.IsTrue(GameState.IsBitSet(capturedPiecesBoard, GameState.GetBitIndex(3,4)));
+        Assert.IsTrue(GameState.IsBitSet(capturedPiecesBoard, GameState.GetBitIndex(1,2)));
+        Assert.IsTrue(GameState.IsBitSet(capturedPiecesBoard, GameState.GetBitIndex(3,2)));
+    }
+    
+    public void KingCapturesTest()
+    {
+        var boardString = new string[]
+        {
+            "........", // row 0
+            "........", // row 1
+            ".k.k....", // row 2: 
+            "........", // row 3: 
+            ".k.k....", // row 4
+            "..k.....", // row 5
+            "........", // row 6
+            "........", // row 7
+        };
+        var state = CreateBoardFromStringArray(boardString);
+        
+        //Jumping Pawns 
+        var fromBit = GameState.GetBitIndex(2, 5);
+        var toBit = GameState.GetBitIndex(2, 5); 
+         
+        var result = GameLogic.TryApplyMove(ref state, fromBit, toBit);
+        
+        Assert.IsTrue(result.Success);
+        Assert.IsTrue(GameState.IsBitSet(state.Player1Kings, GameState.GetBitIndex(2,5))); //King still exists
+        
+        Assert.IsFalse(GameState.IsBitSet(state.Player1Pawns, GameState.GetBitIndex(1,4))); //Removed all jumped pieces 
+        Assert.IsFalse(GameState.IsBitSet(state.Player2Kings, GameState.GetBitIndex(3,4)));
+        Assert.IsFalse(GameState.IsBitSet(state.Player2Kings, GameState.GetBitIndex(1,2)));
+        Assert.IsFalse(GameState.IsBitSet(state.Player2Kings, GameState.GetBitIndex(3,2)));
+
+        var capturedPiecesBoard = result.CapturedKings;
         Assert.IsTrue(GameState.IsBitSet(capturedPiecesBoard, GameState.GetBitIndex(1,4))); //Removed all jumped pieces 
         Assert.IsTrue(GameState.IsBitSet(capturedPiecesBoard, GameState.GetBitIndex(3,4)));
         Assert.IsTrue(GameState.IsBitSet(capturedPiecesBoard, GameState.GetBitIndex(1,2)));

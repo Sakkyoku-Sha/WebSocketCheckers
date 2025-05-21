@@ -115,7 +115,7 @@ public class ByteWriterTests
         var buffer = new byte[CheckersMove.ByteSize];
         var writer = new ByteWriter(buffer);
 
-        var move = new CheckersMove(1, 2, true, 4);
+        var move = new CheckersMove(1, 2, true, 4, 4);
         writer.WriteCheckersMove(ref move);
 
         Assert.That(writer.BytesWritten, Is.EqualTo(CheckersMove.ByteSize));
@@ -129,8 +129,8 @@ public class ByteWriterTests
 
         var moves = new[]
         {
-            new CheckersMove(1,2,true,4),
-            new CheckersMove(5,6,false,8),
+            new CheckersMove(1,2,true,4,4),
+            new CheckersMove(5,6,false,8,8),
         };
         
         writer.WriteCheckersMoves(moves, 2);

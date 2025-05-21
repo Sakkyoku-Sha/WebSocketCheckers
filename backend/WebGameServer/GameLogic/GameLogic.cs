@@ -7,6 +7,18 @@ public static class GameLogic
 {
     private static bool IsOnBoard(int x, int y) => x >= 0 && x < GameState.BoardSize && y >= 0 && y < GameState.BoardSize;
     private static bool IsDarkSquare(int x, int y) => (x + y) % 2 == 1;
+
+    private static (ulong capturedPawns, ulong capturedKings) SplitCaptured(ulong captured, bool isPlayer1Turn, in GameState state)
+    {
+        if (isPlayer1Turn)
+        {
+            return (captured & state.Player2Pawns, captured & state.Player2Kings);
+        }
+        else
+        {
+            return (captured & state.Player1Pawns, captured & state.Player1Kings);
+        }
+    }
     
     public static TryMoveResult TryApplyMove(ref GameState state, int fromBitIndex, int toBitIndex)
     {
@@ -14,6 +26,13 @@ public static class GameLogic
         if (validationResult.Valid == false)
         {
             return TryMoveResult.Fail;
+        }
+        
+        // --- SPLIT CAPTURED BEFORE BOARD IS MODIFIED ---
+        ulong capturedPawns = 0, capturedKings = 0;
+        if (validationResult.JumpInfo.HasValue)
+        {
+            (capturedPawns, capturedKings) = SplitCaptured(validationResult.JumpInfo.Value.capturedPieces, state.IsPlayer1Turn, state);
         }
         
         var playerKings = state.IsPlayer1Turn ? state.Player1Kings : state.Player2Kings;
@@ -45,7 +64,7 @@ public static class GameLogic
         //Update the game result if the game is over.
         UpdateGameResult(ref state);
         
-        return new TryMoveResult(true, shouldPromote, validationResult.JumpInfo?.capturedPieces ?? 0ul);
+        return new TryMoveResult(true, shouldPromote, capturedPawns, capturedKings);
     }
 
     private static JumpPath[] DetermineForcedJumpsInPosition(ref GameState state)
@@ -385,13 +404,14 @@ public static class GameLogic
     private static readonly (int, int)[] KingDirections = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
 }
 
-public struct TryMoveResult(bool success, bool promoted, ulong capturedPieces)
+public struct TryMoveResult(bool success, bool promoted, ulong capturedPawns, ulong capturedKings)
 {
     public readonly bool Success = success; 
     public readonly bool Promoted = promoted;
-    public readonly ulong CapturedPieces = capturedPieces;
+    public readonly ulong CapturedPawns = capturedPawns;
+    public readonly ulong CapturedKings = capturedKings;
 
-    public static readonly TryMoveResult Fail = new(false, false, 0);
+    public static readonly TryMoveResult Fail = new(false, false, 0, 0);
 }
 public readonly struct MoveValidationResult(bool valid, (ulong capturedPieces, bool jumpedIntoPromotionSquare)? jumpInfo)
 {
@@ -400,3 +420,4 @@ public readonly struct MoveValidationResult(bool valid, (ulong capturedPieces, b
     
     public static readonly MoveValidationResult Invalid = new(false, null); 
 }
+

@@ -110,7 +110,7 @@ public static class LocalGameSpace
             var result = GameLogic.GameLogic.TryApplyMove(ref gameInfo.GameState, fromXy, toXy);
             if (result.Success)
             {
-                var checkersMove = new CheckersMove(fromXy, toXy, result.Promoted, result.CapturedPieces);
+                var checkersMove = new CheckersMove(fromXy, toXy, result.Promoted, result.CapturedPawns, result.CapturedKings);
                 gameInfo.AddHistory(checkersMove);
                 gameInfo.RefreshStatus();
                 await onSuccessfulMove(gameInfo, checkersMove);

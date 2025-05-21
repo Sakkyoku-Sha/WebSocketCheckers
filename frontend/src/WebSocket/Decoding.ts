@@ -1,4 +1,4 @@
-﻿import {ByteReader} from "./ByteReader";
+﻿import {ByteReader, CheckersMove} from "./ByteReader";
 
 export enum FromServerMessageType
 {
@@ -34,12 +34,7 @@ export enum GameStatus
     Player2Win = 5,
     Draw = 6,
 }
-export interface CheckersMove{
-    fromIndex: number;
-    toIndex: number;
-    promoted: boolean;
-    capturedPieces: bigint;
-}
+
 export interface WebSocketMessage {
     version : number,
     type: FromServerMessageType

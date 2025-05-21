@@ -42,7 +42,6 @@ export default function Home() {
   
   const onNewMoveMessage = (newMoveMessage : NewMoveMessage) => {
       if(currentGame.current === null) return;
-
       currentGame.current.forcedMoves = newMoveMessage.forcedMovesInPosition;
       currentGame.current.history.push(newMoveMessage.move);
       setMoveNumber(currentGame.current.history.length - 1);

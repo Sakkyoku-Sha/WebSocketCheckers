@@ -17,14 +17,15 @@ public enum GameStatus : byte
 
 //Required for Efficient Byte Serialization DO NOT DELETE 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct CheckersMove(byte fromIndex, byte toIndex, bool promoted, ulong capturedPieces)
+public readonly struct CheckersMove(byte fromIndex, byte toIndex, bool promoted, ulong capturedPawns, ulong capturedKings)
 {
     public readonly byte FromIndex = fromIndex;
     public readonly byte ToIndex = toIndex;
     public readonly bool Promoted = promoted; 
-    public readonly ulong CapturedPieces = capturedPieces;
+    public readonly ulong CapturedPawns = capturedPawns;
+    public readonly ulong CapturedKings = capturedKings;
     
-    public const int ByteSize = 11; 
+    public const int ByteSize = 19; // 1 + 1 + 1 + 8 + 8
 }
 
 public class GameInfo
