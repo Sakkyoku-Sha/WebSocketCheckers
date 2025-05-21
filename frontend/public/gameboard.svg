@@ -1,38 +1,117 @@
 <svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
-  <rect width="400" height="400" fill="white"/>
-  <g fill="saddlebrown">
-    <!-- Alternating squares -->
-    <rect x="0" y="0" width="50" height="50"/>
-    <rect x="100" y="0" width="50" height="50"/>
-    <rect x="200" y="0" width="50" height="50"/>
-    <rect x="300" y="0" width="50" height="50"/>
-    <rect x="50" y="50" width="50" height="50"/>
-    <rect x="150" y="50" width="50" height="50"/>
-    <rect x="250" y="50" width="50" height="50"/>
-    <rect x="350" y="50" width="50" height="50"/>
-    <rect x="0" y="100" width="50" height="50"/>
-    <rect x="100" y="100" width="50" height="50"/>
-    <rect x="200" y="100" width="50" height="50"/>
-    <rect x="300" y="100" width="50" height="50"/>
-    <rect x="50" y="150" width="50" height="50"/>
-    <rect x="150" y="150" width="50" height="50"/>
-    <rect x="250" y="150" width="50" height="50"/>
-    <rect x="350" y="150" width="50" height="50"/>
-    <rect x="0" y="200" width="50" height="50"/>
-    <rect x="100" y="200" width="50" height="50"/>
-    <rect x="200" y="200" width="50" height="50"/>
-    <rect x="300" y="200" width="50" height="50"/>
-    <rect x="50" y="250" width="50" height="50"/>
-    <rect x="150" y="250" width="50" height="50"/>
-    <rect x="250" y="250" width="50" height="50"/>
-    <rect x="350" y="250" width="50" height="50"/>
-    <rect x="0" y="300" width="50" height="50"/>
-    <rect x="100" y="300" width="50" height="50"/>
-    <rect x="200" y="300" width="50" height="50"/>
-    <rect x="300" y="300" width="50" height="50"/>
-    <rect x="50" y="350" width="50" height="50"/>
-    <rect x="150" y="350" width="50" height="50"/>
-    <rect x="250" y="350" width="50" height="50"/>
-    <rect x="350" y="350" width="50" height="50"/>
+  <defs>
+    <!-- Light Wood Grain Filter -->
+    <filter id="lightWood" x="0" y="0" width="100%" height="100%" filterUnits="objectBoundingBox">
+      <feFlood flood-color="#E0C6A1" result="baseLight"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.03 0.3" numOctaves="2" seed="45" result="grainNoise"/>
+      <feComponentTransfer in="grainNoise" result="grainLines">
+        <feFuncR type="table" tableValues="0.2 0.3 0.25 0.4 0.3"/>
+        <feFuncG type="table" tableValues="0.15 0.25 0.2 0.35 0.25"/>
+        <feFuncB type="table" tableValues="0.1 0.2 0.15 0.3 0.2"/>
+      </feComponentTransfer>
+      <feComposite in="baseLight" in2="grainLines" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="texturedLightWood"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.01" numOctaves="1" seed="46" result="softNoise"/>
+      <feComponentTransfer in="softNoise" result="brightnessVariation">
+        <feFuncR type="table" tableValues="0.95 1.05"/>
+        <feFuncG type="table" tableValues="0.95 1.05"/>
+        <feFuncB type="table" tableValues="0.95 1.05"/>
+      </feComponentTransfer>
+      <feComposite in="texturedLightWood" in2="brightnessVariation" operator="multiply"/>
+    </filter>
+
+    <!-- Dark Wood Grain Filter -->
+    <filter id="darkWood" x="0" y="0" width="100%" height="100%" filterUnits="objectBoundingBox">
+      <feFlood flood-color="#6F4E37" result="baseDark"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.035 0.35" numOctaves="2" seed="145" result="grainNoise"/>
+      <feComponentTransfer in="grainNoise" result="grainLines">
+        <feFuncR type="table" tableValues="0.1 0.15 0.12 0.2 0.15"/>
+        <feFuncG type="table" tableValues="0.08 0.13 0.1 0.18 0.13"/>
+        <feFuncB type="table" tableValues="0.05 0.1 0.08 0.15 0.1"/>
+      </feComponentTransfer>
+      <feComposite in="baseDark" in2="grainLines" operator="arithmetic" k1="0" k2="0.8" k3="0.7" k4="0" result="texturedDarkWood"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.01" numOctaves="1" seed="146" result="softNoise"/>
+      <feComponentTransfer in="softNoise" result="brightnessVariation">
+        <feFuncR type="table" tableValues="0.9 1.1"/>
+        <feFuncG type="table" tableValues="0.9 1.1"/>
+        <feFuncB type="table" tableValues="0.9 1.1"/>
+      </feComponentTransfer>
+      <feComposite in="texturedDarkWood" in2="brightnessVariation" operator="multiply"/>
+    </filter>
+  </defs>
+
+  <!-- Playing Squares (Dimensions: 50x50 squares, no frame) -->
+  <g id="playing-squares">
+    <!-- Row 0 -->
+    <rect x="0" y="0" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="50" y="0" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="100" y="0" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="150" y="0" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="200" y="0" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="250" y="0" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="300" y="0" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="350" y="0" width="50" height="50" filter="url(#darkWood)"/>
+    <!-- Row 1 -->
+    <rect x="0" y="50" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="50" y="50" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="100" y="50" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="150" y="50" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="200" y="50" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="250" y="50" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="300" y="50" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="350" y="50" width="50" height="50" filter="url(#lightWood)"/>
+    <!-- Row 2 -->
+    <rect x="0" y="100" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="50" y="100" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="100" y="100" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="150" y="100" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="200" y="100" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="250" y="100" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="300" y="100" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="350" y="100" width="50" height="50" filter="url(#darkWood)"/>
+    <!-- Row 3 -->
+    <rect x="0" y="150" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="50" y="150" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="100" y="150" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="150" y="150" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="200" y="150" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="250" y="150" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="300" y="150" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="350" y="150" width="50" height="50" filter="url(#lightWood)"/>
+    <!-- Row 4 -->
+    <rect x="0" y="200" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="50" y="200" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="100" y="200" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="150" y="200" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="200" y="200" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="250" y="200" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="300" y="200" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="350" y="200" width="50" height="50" filter="url(#darkWood)"/>
+    <!-- Row 5 -->
+    <rect x="0" y="250" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="50" y="250" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="100" y="250" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="150" y="250" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="200" y="250" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="250" y="250" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="300" y="250" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="350" y="250" width="50" height="50" filter="url(#lightWood)"/>
+    <!-- Row 6 -->
+    <rect x="0" y="300" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="50" y="300" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="100" y="300" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="150" y="300" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="200" y="300" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="250" y="300" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="300" y="300" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="350" y="300" width="50" height="50" filter="url(#darkWood)"/>
+    <!-- Row 7 -->
+    <rect x="0" y="350" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="50" y="350" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="100" y="350" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="150" y="350" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="200" y="350" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="250" y="350" width="50" height="50" filter="url(#lightWood)"/>
+    <rect x="300" y="350" width="50" height="50" filter="url(#darkWood)"/>
+    <rect x="350" y="350" width="50" height="50" filter="url(#lightWood)"/>
   </g>
 </svg>
