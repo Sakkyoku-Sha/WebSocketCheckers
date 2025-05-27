@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics;
 using WebGameServer;
 using WebGameServer.GameStateManagement.GameStateStore;
+using WebGameServer.GameStateManagement.Timers;
 
 // //Setup Server Connections and Internal Data Management. 
 // var postgresConn = new PostgresConnection();
@@ -10,6 +11,7 @@ using WebGameServer.GameStateManagement.GameStateStore;
 
 //Build up memory for game states. 
 LocalGameSpace.Initialize();
+GameTimers.InitializeTimers();
 
 //Setup Web Server 
 var builder = WebApplication.CreateBuilder(args);
@@ -52,6 +54,7 @@ TaskScheduler.UnobservedTaskException += (sender, args) =>
     var logger = app.Services.GetRequiredService<ILogger<Program>>();
     logger.LogError(args.Exception, "An unobserved task exception occurred.");
     args.SetObserved(); // Prevents the process from terminating
+    Console.WriteLine(args.Exception);
 };
 
 app.UseExceptionHandler(errorApp =>
@@ -69,6 +72,13 @@ app.UseExceptionHandler(errorApp =>
         context.Response.StatusCode = 500;
         await context.Response.WriteAsync("An error occurred.");
     });
+});
+
+var lifetime = app.Lifetime;
+lifetime.ApplicationStopping.Register(() =>
+{
+    Console.WriteLine("Application Shutting Down...");
+    GameTimers.StopTimers();
 });
 
 app.Run();

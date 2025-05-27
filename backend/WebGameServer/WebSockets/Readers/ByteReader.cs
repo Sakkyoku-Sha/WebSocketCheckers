@@ -111,9 +111,9 @@ public readonly struct TryMakeMoveRequest(byte fromXy, byte toXy) : IFixedByteSi
     public static int ByteSize => sizeof(byte) + sizeof(byte);
 }
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct TryJoinGameRequest(int gameId) : IFixedByteSize
+public readonly struct TryJoinGameRequest(uint gameId) : IFixedByteSize
 {
-    public readonly int GameId = gameId;
+    public readonly uint GameId = gameId;
     public static int ByteSize => sizeof(int);
 }
 

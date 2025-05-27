@@ -1,18 +1,17 @@
-﻿using WebGameServer.GameStateManagement.GameStateStore;
-using WebGameServer.WebSockets.Writers.ByteWriters;
+﻿using WebGameServer.WebSockets.Writers.ByteWriters;
 
 namespace WebGameServer.WebSockets.Writers.MessageWriters;
 
-public readonly struct TryCreateGameResultWriter(int gameId) : IMessageWriter
+public readonly struct TryCreateGameResultWriter(uint gameId) : IMessageWriter
 {
     public void WriteBytes(ref ByteWriter byteWriter)
     {
-        byteWriter.WriteInt(gameId);       
+        byteWriter.WriteUInt(gameId);       
     }
 
     public int CalculatePayLoadLength()
     {
-        return sizeof(int);
+        return sizeof(uint);
     }
 
     public static ToClientMessageType ResponseType => ToClientMessageType.TryCreateGameResponse;

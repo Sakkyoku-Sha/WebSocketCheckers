@@ -14,7 +14,7 @@ public class ByteWriterTests
         writer.WriteBool(true);
         
         Assert.That(buffer[0], Is.EqualTo(1));
-        Assert.That(writer.BytesWritten, Is.EqualTo(1));
+        Assert.That(writer.bytesWritten, Is.EqualTo(1));
     }
 
     [Test]
@@ -26,7 +26,7 @@ public class ByteWriterTests
         writer.WriteBool(false);
         
         Assert.That(buffer[0], Is.EqualTo(0));
-        Assert.That(writer.BytesWritten, Is.EqualTo(1));
+        Assert.That(writer.bytesWritten, Is.EqualTo(1));
     }
 
     [Test]
@@ -38,7 +38,7 @@ public class ByteWriterTests
         writer.WriteByte(42);
 
         Assert.That(buffer[0], Is.EqualTo(42));
-        Assert.That(writer.BytesWritten, Is.EqualTo(1));
+        Assert.That(writer.bytesWritten, Is.EqualTo(1));
     }
 
     [Test]
@@ -50,7 +50,7 @@ public class ByteWriterTests
         writer.WriteUShort(0x1234);
 
         Assert.That(buffer, Is.EqualTo(new byte[] { 0x34, 0x12 }));
-        Assert.That(writer.BytesWritten, Is.EqualTo(2));
+        Assert.That(writer.bytesWritten, Is.EqualTo(2));
     }
 
     [Test]
@@ -62,7 +62,7 @@ public class ByteWriterTests
         writer.WriteInt(0x78563412);
 
         Assert.That(buffer, Is.EqualTo(new byte[] { 0x12, 0x34, 0x56, 0x78 }));
-        Assert.That(writer.BytesWritten, Is.EqualTo(4));
+        Assert.That(writer.bytesWritten, Is.EqualTo(4));
     }
 
     [Test]
@@ -74,7 +74,7 @@ public class ByteWriterTests
         writer.WriteULong(0x1122334455667788UL);
 
         Assert.That(buffer, Is.EqualTo(new byte[] { 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11 }));
-        Assert.That(writer.BytesWritten, Is.EqualTo(8));
+        Assert.That(writer.bytesWritten, Is.EqualTo(8));
     }
 
     [Test]
@@ -88,7 +88,7 @@ public class ByteWriterTests
 
         var guidBytes = guid.ToByteArray();
         Assert.That(buffer[..16], Is.EqualTo(guidBytes));
-        Assert.That(writer.BytesWritten, Is.EqualTo(16));
+        Assert.That(writer.bytesWritten, Is.EqualTo(16));
     }
 
     [Test]
@@ -106,36 +106,36 @@ public class ByteWriterTests
         Assert.That(buffer[2], Is.EqualTo(0)); // 'A' in UTF16LE
         Assert.That(buffer[3], Is.EqualTo((byte)'B'));
         Assert.That(buffer[4], Is.EqualTo(0)); // 'B' in UTF16LE
-        Assert.That(writer.BytesWritten, Is.EqualTo(5));
+        Assert.That(writer.bytesWritten, Is.EqualTo(5));
     }
 
     [Test]
-    public void WriteCheckersMove_WritesCorrectSize()
+    public void WriteTimedCheckersMove_WritesCorrectSize()
     {
-        var buffer = new byte[CheckersMove.ByteSize];
+        var buffer = new byte[TimedCheckersMove.ByteSize];
         var writer = new ByteWriter(buffer);
 
-        var move = new CheckersMove(1, 2, true, 4, 4);
-        writer.WriteCheckersMove(ref move);
+        var move = new CheckersMove(1, 2, true, 4, 4).ToTimedMove(10);
+        writer.WriteTimedCheckersMove(ref move);
 
-        Assert.That(writer.BytesWritten, Is.EqualTo(CheckersMove.ByteSize));
+        Assert.That(writer.bytesWritten, Is.EqualTo(TimedCheckersMove.ByteSize));
     }
 
     [Test]
-    public void WriteCheckersMoves_WritesArrayCorrectly()
+    public void WriteTimedCheckersMoves_WritesArrayCorrectly()
     {
-        var buffer = new byte[CheckersMove.ByteSize * 2];
+        var buffer = new byte[TimedCheckersMove.ByteSize * 2];
         var writer = new ByteWriter(buffer);
 
         var moves = new[]
         {
-            new CheckersMove(1,2,true,4,4),
-            new CheckersMove(5,6,false,8,8),
+            new CheckersMove(1,2,true,4,4).ToTimedMove(0),
+            new CheckersMove(1,2,true,4,4).ToTimedMove(10),
         };
         
-        writer.WriteCheckersMoves(moves, 2);
-
-        Assert.That(writer.BytesWritten, Is.EqualTo(CheckersMove.ByteSize * 2));
+        writer.WriteTimedCheckersMoves(moves, 2);
+        
+        Assert.That(writer.bytesWritten, Is.EqualTo(TimedCheckersMove.ByteSize * 2));
     }
     
     [Test]
@@ -152,7 +152,7 @@ public class ByteWriterTests
         
         writer.WriteBytes(ref byteWriter);
         
-        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.BytesWritten));
+        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.bytesWritten));
     }
     
     [Test]

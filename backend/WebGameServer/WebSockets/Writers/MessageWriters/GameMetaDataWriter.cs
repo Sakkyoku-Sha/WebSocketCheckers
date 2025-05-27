@@ -15,7 +15,7 @@ public readonly struct GameMetaDataWriter(GameMetaData[] gameMetaData) : IMessag
         for (var i = 0; i < gameMetaData.Length; i++)
         {
             var game = gameMetaData[i]; 
-            byteWriter.WriteInt(game.GameId);
+            byteWriter.WriteUInt(game.GameId);
             byteWriter.WriteLengthPrefixedStringUTF16LE(game.Player1.PlayerName);
             byteWriter.WriteLengthPrefixedStringUTF16LE(game.Player2.PlayerName);
         }

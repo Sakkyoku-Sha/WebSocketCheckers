@@ -1,4 +1,6 @@
-﻿using WebGameServer.State;
+﻿using System.Buffers;
+using WebGameServer.GameStateManagement.Timers;
+using WebGameServer.State;
 
 namespace WebGameServer.GameStateManagement.GameStateStore;
 
@@ -10,16 +12,17 @@ internal readonly struct GameSlot(SemaphoreSlim gameLock, GameInfo gameInfo)
 
 public static class LocalGameSpace
 {
-    private const int GameSpaceCapacity = 1000;
+    public const uint GameSpaceCapacity = 1000;
     private static GameSlot[] _gameSpace = new GameSlot[GameSpaceCapacity];
     private static int _lastCreatedGameSlot = 0;
     
     public static void Initialize()
     {
         _gameSpace = new GameSlot[GameSpaceCapacity];
-        for (var i = 0; i < GameSpaceCapacity; i++)
+        for (uint i = 0; i < GameSpaceCapacity; i++)
         {
-            _gameSpace[i] = new GameSlot(new SemaphoreSlim(1,1), new GameInfo(i));
+            var timerId = i % GameTimers.TimerAmount;
+            _gameSpace[i] = new GameSlot(new SemaphoreSlim(1,1), new GameInfo(i, timerId));
         }
     }
     
@@ -75,7 +78,7 @@ public static class LocalGameSpace
         return new TryCreateGameResult(didCreateGame, createdGameMetaData);
     }
     
-    public static async Task TryJoinGame(int gameId, Guid playerId, Func<GameInfo, PlayerInfo, Task> onSuccess, Action onFail)
+    public static async Task TryJoinGame(uint gameId, Guid playerId, Func<GameInfo, PlayerInfo, Task> onSuccess, Action onFail)
     {
         await LockExecuteState(gameId, async (gameInfo) =>
         {
@@ -102,10 +105,17 @@ public static class LocalGameSpace
         });
     }
 
-    public static async Task TryMakeMove(int gameId, byte fromXy, byte toXy, Func<GameInfo, CheckersMove, Task> onSuccessfulMove)
+    public static async Task TryMakeMove(uint gameId, byte fromXy, byte toXy, Func<GameInfo, TimedCheckersMove, Task> onSuccessfulMove)
     {
         await LockExecuteState(gameId, async (gameInfo) =>
         {
+            //Check to see if the current player has timed out. 
+            gameInfo.UpdateTime();
+            if (gameInfo.IsTimedOut())
+            {
+                return;
+            }
+            
             //todo re add validation here so you can't make moves for your opponent 
             var result = GameLogic.GameLogic.TryApplyMove(ref gameInfo.GameState, fromXy, toXy);
             if (result.Success)
@@ -113,7 +123,7 @@ public static class LocalGameSpace
                 var checkersMove = new CheckersMove(fromXy, toXy, result.Promoted, result.CapturedPawns, result.CapturedKings);
                 gameInfo.AddHistory(checkersMove);
                 gameInfo.RefreshStatus();
-                await onSuccessfulMove(gameInfo, checkersMove);
+                await onSuccessfulMove(gameInfo, gameInfo.MoveHistory[gameInfo.MoveHistoryCount-1]);
             }
         });
     }
@@ -143,41 +153,19 @@ public static class LocalGameSpace
         return activeGames;
     }
     
-    private static GameSlot GetGameSlotIfActive(int gameId)
+    private static GameSlot GetGameSlot(uint gameId)
     {
-        if (gameId < 0 || gameId >= _gameSpace.Length)
+        if (gameId >= _gameSpace.Length)
         {
             throw new ArgumentOutOfRangeException(nameof(gameId));
         }
         
-        ref var gameSlot = ref _gameSpace[gameId];
-        if (gameSlot.GameInfo.IsActive == false)
-        {
-            throw new InvalidOperationException("Attempted to mutate non active game");
-        }
-
-        return gameSlot;
+        return _gameSpace[gameId];
     }
     
-    private static GameSlot GetGameSlot(int gameId)
+    public static async Task LockExecuteState(uint gameId, Action<GameInfo> mutation)
     {
-        if (gameId < 0 || gameId >= _gameSpace.Length)
-        {
-            throw new ArgumentOutOfRangeException(nameof(gameId));
-        }
-        
-        ref var gameSlot = ref _gameSpace[gameId];
-        if (gameSlot.GameInfo.IsActive == false)
-        {
-            throw new InvalidOperationException("Attempted to mutate non active game");
-        }
-
-        return gameSlot;
-    }
-    
-    public static async Task LockExecuteState(int gameId, Action<GameInfo> mutation)
-    {
-        var gameSlot = GetGameSlotIfActive(gameId);
+        var gameSlot = GetGameSlot(gameId);
         
         await gameSlot.GameLock.WaitAsync();  // Asynchronously acquire the lock
         try
@@ -193,11 +181,11 @@ public static class LocalGameSpace
             gameSlot.GameLock.Release();  // Release the lock
         }
     }
-    public static async Task<TResult?> LockExecuteState<TResult>(int gameId, Func<GameInfo, TResult> mutation)
+    public static async Task<TResult?> LockExecuteState<TResult>(uint gameId, Func<GameInfo, TResult> mutation)
     {
         TResult? result = default;
         
-        var gameSlot = GetGameSlotIfActive(gameId);
+        var gameSlot = GetGameSlot(gameId);
         
         await gameSlot.GameLock.WaitAsync();  // Asynchronously acquire the lock
         try
@@ -216,9 +204,9 @@ public static class LocalGameSpace
         return result;
     }
     
-    public static async Task LockExecuteState(int gameId, Func<GameInfo, Task> mutation)
+    public static async Task LockExecuteState(uint gameId, Func<GameInfo, Task> mutation)
     {
-        var gameSlot = GetGameSlotIfActive(gameId);
+        var gameSlot = GetGameSlot(gameId);
         
         await gameSlot.GameLock.WaitAsync();  // Asynchronously acquire the lock
         try
@@ -235,11 +223,11 @@ public static class LocalGameSpace
         }
     }
     
-    public static async Task<TResult?> LockExecuteState<TResult>(int gameId, Func<GameInfo, Task<TResult>> mutation)
+    public static async Task<TResult?> LockExecuteState<TResult>(uint gameId, Func<GameInfo, Task<TResult>> mutation)
     {
         TResult? result = default;
         
-        var gameSlot = GetGameSlotIfActive(gameId);
+        var gameSlot = GetGameSlot(gameId);
         
         await gameSlot.GameLock.WaitAsync();  // Asynchronously acquire the lock
         try
@@ -257,18 +245,10 @@ public static class LocalGameSpace
 
         return result;
     }
-
-    public static void ResetGame(int gameInfoGameId)
+    
+    public static PlayerInfo GetOpponentInfo(uint sourceSessionGameId, Guid sourceSessionPlayerId)
     {
-        //If we are calling a reset we do not care about any other requests on this state after. 
-        //So race conditions are ignored. 
-        var gameSlot = _gameSpace[gameInfoGameId];
-        gameSlot.GameInfo.Reset();
-    }
-
-    public static PlayerInfo GetOpponentInfo(int sourceSessionGameId, Guid sourceSessionPlayerId)
-    {
-        var users = _gameSpace[sourceSessionGameId].GameInfo.GetNonNullUsers();
+        var users = _gameSpace[sourceSessionGameId].GameInfo.GetNonNullPlayers();
         foreach (var user in users)
         {
             if (user.PlayerId == sourceSessionPlayerId) continue;
@@ -278,7 +258,7 @@ public static class LocalGameSpace
         return PlayerInfo.Empty;
     }
 
-    public static void UpdateGameStatus(int sourceSessionGameId, GameStatus status)
+    public static void UpdateGameStatus(uint sourceSessionGameId, GameStatus status)
     {
         //Assumes we don't care about any moves made in and around this time since GameStatus changes are made to end 
         //the game.
@@ -286,6 +266,59 @@ public static class LocalGameSpace
         gameSlot.GameInfo.Status = status;
         
         //No need to reset the data since if the game is not active it will be recycled later when creating games. 
+    }
+
+    public static async Task TimerTick(uint timerId, Action<GameInfo> onGameTimeout)
+    {
+        const int taskBatchSize = 4;
+        var tasks = ArrayPool<Task>.Shared.Rent(taskBatchSize);
+
+        try
+        {
+            var taskIndex = 0;
+            for (var i = 0; i < _gameSpace.Length; i++)
+            {
+                var gameInfo = _gameSpace[i].GameInfo;
+                if (gameInfo.TimerId != timerId || gameInfo.IsActive == false)
+                {
+                    continue;
+                }
+                
+                gameInfo.UpdateTime();
+                if (!gameInfo.IsTimedOut()) { continue; }
+                
+                //Actually update the status of the game. 
+                gameInfo.RefreshStatus();
+                    
+                var task = LockExecuteState(gameInfo.GameId, lockedGameInfo =>
+                {
+                    onGameTimeout(lockedGameInfo);
+                    lockedGameInfo.Reset();
+                });
+                
+                tasks[taskIndex] = task;
+                taskIndex++;
+                    
+                if (taskIndex == taskBatchSize)
+                {
+                    await Task.WhenAll(tasks.AsSpan(0, taskIndex));
+                    taskIndex = 0;
+                }
+            }
+
+            if (taskIndex > 0)
+            {
+                await Task.WhenAll(tasks.AsSpan(0, taskIndex));
+            }
+        }
+        catch (Exception exception)
+        {
+            Console.WriteLine(exception);
+        }
+        finally
+        {
+            ArrayPool<Task>.Shared.Return(tasks);
+        }
     }
 } 
 
@@ -295,9 +328,9 @@ public readonly struct TryCreateGameResult(bool didCreateGame, GameMetaData snap
     public readonly GameMetaData CreatedGame = snapShot;
 }
 
-public readonly struct GameMetaData(int gameId, PlayerInfo player1, PlayerInfo player2)
+public readonly struct GameMetaData(uint gameId, PlayerInfo player1, PlayerInfo player2)
 {
     public readonly PlayerInfo Player1 = player1;
     public readonly PlayerInfo Player2 = player2;
-    public readonly int GameId = gameId; 
+    public readonly uint GameId = gameId; 
 }

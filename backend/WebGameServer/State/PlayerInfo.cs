@@ -15,7 +15,9 @@ public readonly struct PlayerInfo(Guid playerId, string playerName, bool isPlaye
     public readonly bool IsPlayer1 = isPlayer1; 
     
     public bool IsDefined => PlayerId != Guid.Empty;
-    public static PlayerInfo Empty = new PlayerInfo();
+    
+    private static readonly PlayerInfo EmptyPlayer = new();
+    public static PlayerInfo Empty = EmptyPlayer;
 
     private static string DefaultName(Guid playerId)
     {

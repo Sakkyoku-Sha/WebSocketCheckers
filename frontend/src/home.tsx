@@ -16,16 +16,21 @@ import {
 
 import WebSocketEvents from "@/WebSocket/WebSocketEvents";
 import {WebSocketSend} from "@/WebSocket/WebSocketConnect";
+import {Timer} from "@/Timer";
 
 
 export default function Home() {
     
   const currentGame = useRef<GameInfo | null>(null);
   const [moveNumber, setMoveNumber] = useState<number>(-1);
-  
+  const player1Time= useRef<number>(5 * 60 * 1000); // 5 minutes in milliseconds
+  const player2Time = useRef<number>(5 * 60 * 1000); // 5 minutes in milliseconds
+    
   const onGameInfoMessage = (gameInfo : GameInfo) => {
       currentGame.current = gameInfo;
       setMoveNumber(gameInfo.historyCount-1);
+      player1Time.current = gameInfo.player1RemainingTimeMs;
+      player2Time.current = gameInfo.player2RemainingTimeMs;
   }
   
   const onInitialStateMessage = (initialStateMessage : InitialStateMessage) => {
@@ -63,20 +68,22 @@ export default function Home() {
       console.log("Player joined: " + playerJoinedMessage.playerName);
   }
   
+  const maxUint32 = 0xFFFFFFFF;
   const onTryCreateGameResult = (tryCreateGameResult : TryCreateGameResultMessage) => {
-      if(tryCreateGameResult.gameId >= 0) {
-          currentGame.current = { //Probably should update the response here to send an empty GameInfo instead 
-              gameId: tryCreateGameResult.gameId,
-              gameName : "",
-              player1Name: "Me",
-              player1Id: "",
-              player2Name: "",
-              player2Id: "",
-              forcedMoves: [],
-              history: [],
-              historyCount : 0,
-              gameStatus : GameStatus.WaitingForPlayers,
-          }
+        currentGame.current = {
+            gameTimeStartMs: BigInt(0),
+            gameName: "",
+            gameId: tryCreateGameResult.gameId,
+            player1Name: "Me", //update this with player name? Depends if we want to allow non default names
+            player2Name: "",
+            history: [],
+            historyCount: 0,
+            forcedMoves: [],
+            gameStatus: GameStatus.WaitingForPlayers,
+            player1Id: "",
+            player2Id: "",
+            player1RemainingTimeMs: 5 * 60 * 1000, // 5 minutes in milliseconds
+            player2RemainingTimeMs: 5 * 60 * 1000, // 5 minutes in milliseconds
       }
   }
   
@@ -119,6 +126,9 @@ export default function Home() {
         WebSocketSend.tryJoinGame(gameId);
     }
     
+    const player1TimerRunning = currentGame.current != null && currentGame.current.history.length % 2 === 0;
+    const player2TimerRunning = currentGame.current != null && currentGame.current.history.length % 2 === 1;
+    
     return (
       <div className="page">
         <div className="game-history-container">
@@ -128,6 +138,7 @@ export default function Home() {
         <div className="game-container">
           <div className="player-two-info player-display-card">
               <PlayerCard playerName={currentGame.current?.player2Name ?? "Waiting For Player"}/>
+              <Timer timeMs={player2Time} isRunning={player2TimerRunning}/>
           </div>
           <div className="game-area">
             <GameBoard makeMove={TryMakeMove} 
@@ -137,6 +148,7 @@ export default function Home() {
            
           <div className="player-one-info player-display-card">
               <PlayerCard playerName={currentGame.current?.player1Name ?? "Waiting For Player"}/>
+              <Timer timeMs={player1Time} isRunning={player1TimerRunning} />
           </div>
         </div>
           <div className="games-panel-container">

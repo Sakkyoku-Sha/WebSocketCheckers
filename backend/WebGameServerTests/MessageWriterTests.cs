@@ -18,7 +18,7 @@ public class MessageWriterTests
         var writer = new GameCreatedWriter(new GameMetaData(1, player1, PlayerInfo.Empty));
         writer.WriteBytes(ref byteWriter);
         
-        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.BytesWritten));     
+        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.bytesWritten));     
     }
 
     [Test]
@@ -39,7 +39,7 @@ public class MessageWriterTests
         var writer = new GameMetaDataWriter(activeGames);
         writer.WriteBytes(ref byteWriter);
         
-        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.BytesWritten));  
+        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.bytesWritten));  
     }
 
     [Test]
@@ -55,7 +55,7 @@ public class MessageWriterTests
             new(0, player1, player2),
             new(1, player1, player2),
         ];
-        var gameInfo = new GameInfo(1);
+        var gameInfo = new GameInfo(1, 0);
         gameInfo.Reset();
         gameInfo.GameState.CurrentForcedJumps = new JumpPath[]
         {
@@ -66,7 +66,7 @@ public class MessageWriterTests
         var writer = new InitialMessageWriter(activeGames, gameInfo);
         
         writer.WriteBytes(ref byteWriter);
-        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.BytesWritten));
+        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.bytesWritten));
     }
     
     [Test]
@@ -75,7 +75,7 @@ public class MessageWriterTests
         var buffer = new byte[1024];
         var byteWriter = new ByteWriter(buffer);
         
-        var gameInfo = new GameInfo(1);
+        var gameInfo = new GameInfo(1, 0);
         gameInfo.Reset();
         gameInfo.GameState.CurrentForcedJumps =
         [
@@ -85,7 +85,7 @@ public class MessageWriterTests
         var writer = new GameInfoWriter(gameInfo);
         
         writer.WriteBytes(ref byteWriter);
-        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.BytesWritten));
+        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.bytesWritten));
     }
     
     [Test]
@@ -94,12 +94,12 @@ public class MessageWriterTests
         var buffer = new byte[1024];
         var byteWriter = new ByteWriter(buffer);
 
-        var gameInfo = new GameInfo(1);
+        var gameInfo = new GameInfo(1, 0);
         gameInfo.Reset();
         var writer = new JoinGameResultWriter(true, gameInfo);
         
         writer.WriteBytes(ref byteWriter);
-        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.BytesWritten));
+        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.bytesWritten));
     }
 
     [Test]
@@ -107,7 +107,7 @@ public class MessageWriterTests
     {
         var buffer = new byte[1024];
         var byteWriter = new ByteWriter(buffer);
-        var checkersMove = new CheckersMove();
+        var checkersMove = new CheckersMove(1,2, false, 0, 0).ToTimedMove(1);
         var jumpPaths = new JumpPath[]
         {
             new(1, false, 3, 4),
@@ -116,7 +116,7 @@ public class MessageWriterTests
         var writer = new NewMoveWriter(checkersMove, jumpPaths);
         
         writer.WriteBytes(ref byteWriter);
-        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.BytesWritten));
+        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.bytesWritten));
     }
     
     [Test]
@@ -129,7 +129,7 @@ public class MessageWriterTests
         var writer = new PlayerJoinedWriter(playerInfo);
         
         writer.WriteBytes(ref byteWriter);
-        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.BytesWritten));
+        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.bytesWritten));
     }
     
     [Test]
@@ -142,7 +142,7 @@ public class MessageWriterTests
         var writer = new SessionStartWriter(sessionId);
         
         writer.WriteBytes(ref byteWriter);
-        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.BytesWritten));
+        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.bytesWritten));
     }
     
     [Test]
@@ -154,6 +154,6 @@ public class MessageWriterTests
         var writer = new GameStatusWriter(GameStatus.Player1Win);
         
         writer.WriteBytes(ref byteWriter);
-        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.BytesWritten));
+        Assert.That(writer.CalculatePayLoadLength(), Is.EqualTo(byteWriter.bytesWritten));
     }
 }

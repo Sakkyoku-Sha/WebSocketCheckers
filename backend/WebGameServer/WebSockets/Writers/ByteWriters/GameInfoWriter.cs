@@ -5,10 +5,13 @@ namespace WebGameServer.WebSockets.Writers.ByteWriters;
 
 public readonly struct GameInfoWriter(GameInfo? gameInfo) : IByteWriter
 {
-    public const int GameIdByteLength = sizeof(int);
+    public const int GameIdByteLength = sizeof(uint);
 
     private const int GameStatusEncodingLength = 1; 
     private const int GameHistoryLengthEncodingLength = 2;
+    
+    // GameStartTimeMs, Player1RemainingTimeMs, Player2RemainingTimeMs
+    private const int TimeFieldsEncodingLength = sizeof(long) + sizeof(uint) + sizeof(uint);
     
     private readonly ForcedMovesWriter? _forcedMovesWriter = 
         gameInfo == null ? null : new ForcedMovesWriter(gameInfo.GameState.CurrentForcedJumps);
@@ -18,7 +21,7 @@ public readonly struct GameInfoWriter(GameInfo? gameInfo) : IByteWriter
         if (gameInfo == null) return; 
         
         //GameInfo
-        byteWriter.WriteInt(gameInfo.GameId);
+        byteWriter.WriteUInt(gameInfo.GameId);
         byteWriter.WriteByte((byte)gameInfo.Status);
         byteWriter.WriteLengthPrefixedStringUTF16LE(gameInfo.GameName);
         
@@ -34,7 +37,12 @@ public readonly struct GameInfoWriter(GameInfo? gameInfo) : IByteWriter
 
         //Game History Info
         byteWriter.WriteUShort((ushort)gameInfo.MoveHistoryCount);
-        byteWriter.WriteCheckersMoves(gameInfo.MoveHistory, gameInfo.MoveHistoryCount);
+        byteWriter.WriteTimedCheckersMoves(gameInfo.MoveHistory, gameInfo.MoveHistoryCount);
+        
+        //Timer Related Fields 
+        byteWriter.WriteLong(gameInfo.GameStartTimeMs);
+        byteWriter.WriteUInt(gameInfo.Player1RemainingTimeMs);
+        byteWriter.WriteUInt(gameInfo.Player2RemainingTimeMs);
         
         //Forced Moves in Current Position. 
         _forcedMovesWriter?.WriteBytes(ref byteWriter);
@@ -60,7 +68,8 @@ public readonly struct GameInfoWriter(GameInfo? gameInfo) : IByteWriter
             ByteWriterCommon.GuidByteLength + player1NameEncodedLength +
             ByteWriterCommon.GuidByteLength + player2NameEncodedLength +
             GameHistoryLengthEncodingLength + 
-            (CheckersMove.ByteSize * gameInfo.MoveHistoryCount) + 
+            (TimedCheckersMove.ByteSize * gameInfo.MoveHistoryCount) + 
+            TimeFieldsEncodingLength +
             forcedMovesLength;
 
         return totalByteCount;

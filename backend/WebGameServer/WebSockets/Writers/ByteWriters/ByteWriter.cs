@@ -42,6 +42,16 @@ public ref struct ByteWriter
         _offset += sizeof(int);
     }
     
+    /// <summary>
+    /// Writes the next 8 bytes to the span at the current offset
+    /// </summary>
+    /// <param name="value"></param>
+    public void WriteUInt(uint value)
+    {
+        MemoryMarshal.Write(_buffer[_offset..], in value);
+        _offset += sizeof(uint);
+    }
+    
     public void WriteLengthPrefixedStringUTF16LE(string value)
     { 
         var stringSpan = MemoryMarshal.AsBytes(value.AsSpan());
@@ -58,7 +68,7 @@ public ref struct ByteWriter
        _offset += stringSpan.Length;
     }
     
-    public void WriteCheckersMoves(CheckersMove[] moves, int amountToWrite)
+    public void WriteTimedCheckersMoves(TimedCheckersMove[] moves, int amountToWrite)
     {
         if (moves.Length <= 0) return;
         
@@ -66,17 +76,17 @@ public ref struct ByteWriter
         var moveSpan = moves.AsSpan(0, amountToWrite);
         MemoryMarshal.AsBytes(moveSpan).CopyTo(_buffer[_offset..]);
         
-        _offset += amountToWrite * CheckersMove.ByteSize;
+        _offset += amountToWrite * TimedCheckersMove.ByteSize;
     }
-    public void WriteCheckersMove(ref readonly CheckersMove move)
+    public void WriteTimedCheckersMove(ref readonly TimedCheckersMove move)
     {
         MemoryMarshal.Write(_buffer[_offset..], in move);
-        _offset += CheckersMove.ByteSize;
+        _offset += TimedCheckersMove.ByteSize;
     }
-    public void WriteCheckersMove(CheckersMove move)
+    public void WriteTimedCheckersMove(TimedCheckersMove move)
     {
         MemoryMarshal.Write(_buffer[_offset..], in move);
-        _offset += CheckersMove.ByteSize;
+        _offset += TimedCheckersMove.ByteSize;
     }
     
     public void WriteULong(ulong value)
@@ -102,5 +112,11 @@ public ref struct ByteWriter
         _buffer[_offset] = boolean ? (byte)1 : (byte)0;
         _offset += 1;
     }
-    public int BytesWritten => _offset;
+    public int bytesWritten => _offset;
+
+    public void WriteLong(long gameInfoGameStartTimeMs)
+    {
+        MemoryMarshal.Write(_buffer[_offset..], in gameInfoGameStartTimeMs);
+        _offset += sizeof(long);
+    }
 }

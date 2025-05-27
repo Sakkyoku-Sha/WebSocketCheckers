@@ -31,9 +31,9 @@ public static class FromClientMessageHandler
         if (!session.IsInGame) { return; }
         _ = LocalGameSpace.TryMakeMove(session.GameId, request.FromXy, request.ToXy, OnSuccessfulMove);
     }
-    private static async Task OnSuccessfulMove(GameInfo gameInfo, CheckersMove move)
+    private static async Task OnSuccessfulMove(GameInfo gameInfo, TimedCheckersMove move)
     {
-        var playerIds = gameInfo.GetNonNullUsers().Select(x => x.PlayerId).ToArray();
+        var playerIds = gameInfo.GetNonNullPlayers().Select(x => x.PlayerId).ToArray();
         var sessionIds = SessionSocketHandler.GetSessionsForPlayers(playerIds);
         var gameDidFinish = gameInfo.IsGameFinished();
         

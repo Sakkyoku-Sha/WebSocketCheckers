@@ -107,7 +107,7 @@ public static class WebSocketWriter
         var writer = new InitialMessageWriter(activeGames, gameInfo);
         await RentWriteSendAsync(session, writer);
     }
-    public static async Task WriteNewMoveAsync(UserSession[] userSessions, CheckersMove checkersMove, JumpPath[] forcedMovesInPosition)
+    public static async Task WriteNewMoveAsync(UserSession[] userSessions, TimedCheckersMove checkersMove, JumpPath[] forcedMovesInPosition)
     {
         var writer = new NewMoveWriter(checkersMove, forcedMovesInPosition);
         await RentWriteSendAsync(userSessions, writer);
@@ -137,9 +137,9 @@ public static class WebSocketWriter
         var writer = new GameMetaDataWriter(activeGames);
         await RentWriteSendAsync(sourceSession, writer);
     }
-    public static async Task WriteTryCreateGameResult(UserSession session, bool resultDidCreateGame, int createdGameGameId)
+    public static async Task WriteTryCreateGameResult(UserSession session, bool resultDidCreateGame, uint createdGameGameId)
     {
-        var writer = new TryCreateGameResultWriter(resultDidCreateGame ? createdGameGameId : -1);
+        var writer = new TryCreateGameResultWriter(resultDidCreateGame ? createdGameGameId : GameInfo.EmptyGameId);
         await RentWriteSendAsync(session, writer);
     }
     
@@ -149,10 +149,10 @@ public static class WebSocketWriter
         await RentWriteSendAsync(opponentSession, writer);
     }
 
-    public static async Task WriteGameStatusUpdate(List<UserSession> userSessions, GameStatus draw)
+    public static async Task WriteGameStatusUpdate(UserSession[] userSessions, GameStatus gameStatus)
     {
-        var writer = new GameCreatedWriter(); 
-        await RentWriteSendAsync(userSessions.ToArray(), writer);
+        var writer = new GameStatusWriter(gameStatus); 
+        await RentWriteSendAsync(userSessions, writer);
     }
 
     public static async Task WriteDrawRejected(UserSession opponentSession)

@@ -1,17 +1,16 @@
 ﻿using System.Net.WebSockets;
+using WebGameServer.State;
 
 namespace WebGameServer;
 
 public class UserSession(WebSocket socket, Guid sessionId)
 {
-    private const int NoGame = -1;
-    
     public readonly WebSocketChannel SocketChannel = new(socket);
     public Guid PlayerId = Guid.Empty;
     public Guid SessionId = sessionId;
     public bool Identified = false;
-    public int GameId = NoGame;
-    public bool IsInGame => GameId >= 0;
+    public uint GameId = GameInfo.EmptyGameId;
+    public bool IsInGame => GameId != GameInfo.EmptyGameId;
     public CancellationToken TimeOutToken = CancellationToken.None;
     public WebSocketState State => socket.State;
 
@@ -27,6 +26,6 @@ public class UserSession(WebSocket socket, Guid sessionId)
 
     public void ResetGameId()
     {
-        GameId = NoGame; 
+        GameId = GameInfo.EmptyGameId; 
     }
 }

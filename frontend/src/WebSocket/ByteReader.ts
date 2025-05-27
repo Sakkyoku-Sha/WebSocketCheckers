@@ -64,6 +64,16 @@
         this.offset += size;
         return value;
     }
+    readInt64(): bigint {
+        const size = 8; // sizeof(long)
+        if (!this.hasEnoughBytes(size)) {
+            throw new Error(`Buffer underflow reading Int64. Need ${size}, have ${this.bytesRemaining}.`);
+        }
+        // true for littleEndian
+        const value = this.dataView.getBigInt64(this.offset, true);
+        this.offset += size;
+        return value;
+    }
 
     readLengthPrefixedStringUTF16LE(): string {
         
@@ -88,47 +98,44 @@
         return this.textDecoder.decode(stringBytes);
     }
 
-    readCheckersMove(): CheckersMove {
+    readTimedCheckersMove(): TimedCheckersMove {
         // Use the globally defined constant for clarity and consistency
-        const expectedSize = CHECKERS_MOVE_BYTE_SIZE;
+        const expectedSize = TIMED_CHECKERS_MOVE_BYTE_SIZE;
         if (!this.hasEnoughBytes(expectedSize)) {
             throw new Error(`Buffer underflow reading CheckersMove. Need ${expectedSize}, have ${this.bytesRemaining}.`);
         }
-
-        // Read fields sequentially according to the C# struct layout:
-        const fromIndex = this.readUint8();         // byte FromIndex      (1 byte)
-        const toIndex = this.readUint8();           // byte ToIndex        (1 byte)
-        const promotedByte = this.readUint8();      // bool Promoted       (1 byte)
-        const capturedPawns = this.readBigUint64();  // ulong CapturedPieces (8 bytes)
-        const capturedKings = this.readBigUint64();  // ulong CapturedKings (8 bytes)
-        // Total: 1 + 1 + 1 + 8 = 19 bytes
-
-        // Convert the byte representation of the boolean
-        const promoted = promotedByte !== 0;
-
+        
+        const timeMs = this.readInt64();
+        const fromIndex = this.readUint8();         
+        const toIndex = this.readUint8();
+        const promoted = this.readUint8() !== 0;
+        const capturedPawns = this.readBigUint64(); 
+        const capturedKings = this.readBigUint64(); 
+        
         return {
-            fromIndex : fromIndex,
-            toIndex : toIndex,
-            promoted : promoted,
-            capturedPawns : capturedPawns,
-            capturedKings : capturedKings
-        };
+            fromIndex: fromIndex,
+            toIndex: toIndex,
+            promoted: promoted,
+            capturedPawns: capturedPawns,
+            capturedKings: capturedKings,
+            timeMs: timeMs
+        } as TimedCheckersMove;
     }
 
-    readCheckersMoves(numberOfMoves: number): CheckersMove[] {
+    readTimedCheckersMoves(numberOfMoves: number): TimedCheckersMove[] {
         if (numberOfMoves < 0) throw new Error("numberOfMoves cannot be negative.");
         if (numberOfMoves === 0) return [];
 
         // Use the constant for size calculation
-        const totalBytesNeeded = numberOfMoves * CHECKERS_MOVE_BYTE_SIZE;
+        const totalBytesNeeded = numberOfMoves * TIMED_CHECKERS_MOVE_BYTE_SIZE;
         if (!this.hasEnoughBytes(totalBytesNeeded)) {
             throw new Error(`Buffer underflow reading CheckersMoves array. Need ${totalBytesNeeded} bytes for ${numberOfMoves} moves, have ${this.bytesRemaining}.`);
         }
 
-        const moves: CheckersMove[] = new Array<CheckersMove>(numberOfMoves);
+        const moves: TimedCheckersMove[] = new Array<TimedCheckersMove>(numberOfMoves);
         for (let i = 0; i < numberOfMoves; i++) {
             // This now calls the correctly implemented readCheckersMove
-            moves[i] = (this.readCheckersMove());
+            moves[i] = (this.readTimedCheckersMove());
         }
         return moves;
     }
@@ -192,27 +199,14 @@
     }
 }
 
-
-// --- CheckersMove Definition ---
-
-/**
- * Represents a single checker move, mirroring the C# struct:
- * [StructLayout(LayoutKind.Sequential)]
- * public readonly record struct CheckersMove(
- *     byte FromIndex,       // 1 byte
- *     byte ToIndex,         // 1 byte
- *     bool Promoted,        // 1 byte (usually)
- *     ulong CapturedPawns   // 8 bytes
- *     ulong CapturedKings   // 8 bytes
- * )
- * Total Size = 1 + 1 + 1 + 8 + 8 = 19 bytes.
- */
-
-export const CHECKERS_MOVE_BYTE_SIZE = 19;
+export const TIMED_CHECKERS_MOVE_BYTE_SIZE = 27;
 export interface CheckersMove{
     fromIndex: number;
     toIndex: number;
     promoted: boolean;
     capturedPawns : bigint;
     capturedKings : bigint;
+}
+export interface TimedCheckersMove extends CheckersMove {
+    timeMs: bigint; // Time in milliseconds
 }

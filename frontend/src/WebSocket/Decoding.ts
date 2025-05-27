@@ -64,6 +64,10 @@ export interface GameInfo {
     historyCount : number,
     history : Array<CheckersMove>
     
+    gameTimeStartMs : bigint, 
+    player1RemainingTimeMs: number, //casted down since this should never be more than a few hours 
+    player2RemainingTimeMs: number,
+    
     forcedMoves : ForcedMove[]; 
 }
 
@@ -138,7 +142,7 @@ export interface ForcedMove {
 
 function decodeGameInfo(byteReader: ByteReader) : GameInfo {
     
-    const gameId = byteReader.readInt32();
+    const gameId = byteReader.readUint32();
     const gameStatus = byteReader.readUint8() as GameStatus;
     const gameName = byteReader.readLengthPrefixedStringUTF16LE();
     
@@ -149,7 +153,11 @@ function decodeGameInfo(byteReader: ByteReader) : GameInfo {
     const player2Name = byteReader.readLengthPrefixedStringUTF16LE();
     
     const historyCount = byteReader.readUint16();
-    const history = byteReader.readCheckersMoves(historyCount);
+    const history = byteReader.readTimedCheckersMoves(historyCount);
+    
+    const gameTimeStartMs = byteReader.readInt64();
+    const player1RemainingTime = byteReader.readUint32();
+    const player2RemainingTime = byteReader.readUint32();
     
     const forcedMoves = decodeForcedMoves(byteReader);
     
@@ -167,6 +175,10 @@ function decodeGameInfo(byteReader: ByteReader) : GameInfo {
         
         historyCount : historyCount,
         history : history,
+        
+        gameTimeStartMs : gameTimeStartMs,
+        player1RemainingTimeMs: player1RemainingTime,
+        player2RemainingTimeMs: player2RemainingTime,
         
         forcedMoves : forcedMoves, 
     }
@@ -218,7 +230,7 @@ function decodeGamesMetaData(byteReader: ByteReader) : GameMetaData[] {
 }
 
 function decodeGameMetaData(byteReader: ByteReader) : GameMetaData {
-    const gameId = byteReader.readInt32();
+    const gameId = byteReader.readUint32();
     const player1Name = byteReader.readLengthPrefixedStringUTF16LE();
     const player2Name = byteReader.readLengthPrefixedStringUTF16LE();
     return  {
@@ -255,7 +267,7 @@ function decodeTryCreateGameResult(byteReader: ByteReader, version: number) : Tr
     return {
         type : FromServerMessageType.TryCreateGameResponse,
         version : version,
-        gameId : byteReader.readInt32(),
+        gameId : byteReader.readUint32(),
     }
 }
 
@@ -265,7 +277,7 @@ export interface NewMoveMessage extends WebSocketMessage {
 }
 function decodeNewMoveMessage(byteReader: ByteReader, version: number) : NewMoveMessage {
 
-    const move = byteReader.readCheckersMove();
+    const move = byteReader.readTimedCheckersMove();
     const forcedMovesInPosition = decodeForcedMoves(byteReader);
     return {
         type : FromServerMessageType.NewMove,
