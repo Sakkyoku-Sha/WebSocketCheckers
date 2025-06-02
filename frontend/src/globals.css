@@ -33,7 +33,7 @@ html, body{
   flex-direction: row;
 }
 .game-history-container{
-  flex: 1;
+  flex: 1.1;
 }
 .game-container {
   flex: 3;
@@ -89,47 +89,7 @@ html, body{
   background-size: contain;
   background-repeat: no-repeat;
 }
-/* Container that holds the title and the list of moves */
-.game-history-container {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  max-width: 300px;
-  background-color: #f9f9f9; /* Light background for contrast */
-  border-radius: 8px;        /* Rounded corners */
-  padding: 1rem;            /* Spacing inside the container */
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow */
-  height: 97vh; /* Set a fixed or max height for the panel */
-  min-height: 300px;
-}
 
-.game-history-list {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  max-height: 100%;
-}
-
-/* Title at the top of the history */
-.game-history-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 0.75rem;
-  text-align: center;
-  color: #333;
-}
-
-/* Individual move entries */
-.game-history-item {
-  display: block;
-  padding: 0.5rem 0.75rem;
-  margin-bottom: 0.5rem;
-  background-color: #ffffff;
-  border-radius: 4px;
-  border: #0a0a0a 1px solid;
-  cursor: pointer;
-  transition: background-color 0.2s ease-in-out;
-  color: #333;
-}
 .game-item{
   display: flex;
   justify-content: space-between;
@@ -139,17 +99,6 @@ html, body{
   background-color: #ffffff;
   padding: 0.5rem 0.75rem;
   color : #333;
-}
-
-/* Hover effect on each move item */
-.game-history-item:hover {
-  background-color: #f0f0f0;
-}
-
-/* Active or currently selected move */
-.game-history-item.active {
-  background-color: #e0e0e0;
-  font-weight: bold;
 }
 
 /* Additional styling for the move description text */
@@ -398,4 +347,100 @@ body {
     line-height: 3rem; /* Center the text vertically */
 }
 
+
+/* Container that holds the title and the list of moves */
+.game-history-container {
+  display: flex;
+  flex-direction: column;
+  background-color: #f9f9f9; /* Light background for contrast */
+  overflow-y: auto;
+}
+
+.game-history-list{
+  display: grid;
+  /* Define your columns here.
+   - 'auto' will size based on content.
+   - '1fr' will take up a fraction of the remaining space.
+   Adjust these values to your liking.
+   [turn] etc. are optional line names for clarity.
+*/
+  grid-template-columns:
+    [turn] auto
+    [p1move] 1fr
+    [p1time] 1fr
+    [p2move] 1fr
+    [p2time] auto;
+  /* Gap between columns (optional) */
+  column-gap: 0.75rem; /* Same as your horizontal padding before */
+  /* Gap between rows (optional, can also use padding on items) */
+  /* row-gap: 2px; */
+  width: 100%; /* Or whatever width you need */
+}
+
+/* Title at the top of the history */
+.game-history-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  text-align: center;
+  color: #333;
+}
+
+/* Individual move entries */
+.game-history-item {
+  display: grid;
+  grid-template-columns: subgrid; /* Inherit column tracks from parent grid! */
+  grid-column: 1 / -1; /* Make this item span all columns of the parent grid */
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  color: #333;
+}
+
+.game-history-turn-number{
+  flex-grow: 1;
+  font-size: 1rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.game-history-move-player1{
+    flex-grow: 1;
+    font-size: 1rem;
+    color: #0070f3;
+}
+
+.game-history-move-player2{
+    flex-grow: 1;
+    font-size: 1rem;
+    color: #f44336;
+}
+
+.game-history-move-player1-time{
+    flex-grow: 1;
+    font-size: 1rem;
+    color: #0070f3;
+}
+
+.game-history-move-player2-time{
+    flex-grow: 1;
+    font-size: 1rem;
+    color: #f44336;
+}
+
+.highlight-player1-move{
+  background-color: grey;
+  border-bottom: #0a0a0a 2px double;
+}
+
+.highlight-player2-move{
+  background-color: grey;
+  border-bottom: #0a0a0a 2px double;
+}
+
+.even-turn {
+  background-color: #bcbcbc; /* Light gray for even turns */
+}
+.odd-turn {
+  background-color: #ffffff; /* White for odd turns */
+}
 

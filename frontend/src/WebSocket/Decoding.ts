@@ -1,4 +1,4 @@
-﻿import {ByteReader, CheckersMove} from "./ByteReader";
+﻿import {ByteReader, CheckersMove, TimedCheckersMove} from "./ByteReader";
 
 export enum FromServerMessageType
 {
@@ -62,7 +62,7 @@ export interface GameInfo {
     player2Name : string,
     
     historyCount : number,
-    history : Array<CheckersMove>
+    history : Array<TimedCheckersMove>
     
     gameTimeStartMs : bigint, 
     player1RemainingTimeMs: number, //casted down since this should never be more than a few hours 
