@@ -444,3 +444,6 @@ body {
   background-color: #ffffff; /* White for odd turns */
 }
 
+.player-turn-active{
+    background-color: #8e8e8e; /* Light green for active player's turn */
+}

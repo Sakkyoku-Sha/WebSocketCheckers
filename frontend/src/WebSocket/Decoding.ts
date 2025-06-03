@@ -272,7 +272,7 @@ function decodeTryCreateGameResult(byteReader: ByteReader, version: number) : Tr
 }
 
 export interface NewMoveMessage extends WebSocketMessage {
-    move : CheckersMove,
+    move : TimedCheckersMove,
     forcedMovesInPosition : ForcedMove[], //array of bitboard indices
 }
 function decodeNewMoveMessage(byteReader: ByteReader, version: number) : NewMoveMessage {

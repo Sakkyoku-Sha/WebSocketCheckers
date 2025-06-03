@@ -129,6 +129,9 @@ export default function Home() {
     const player1TimerRunning = currentGame.current != null && currentGame.current.history.length % 2 === 0;
     const player2TimerRunning = currentGame.current != null && currentGame.current.history.length % 2 === 1;
     
+    const player1ActiveClass = player1TimerRunning ? "player-turn-active" : "";
+    const player2ActiveClass = player2TimerRunning ? "player-turn-active" : "";
+    
     return (
       <div className="page">
         <div className="game-history-container">
@@ -136,7 +139,7 @@ export default function Home() {
           <GameHistory currentGame={currentGame} moveNumber={moveNumber} onMoveClick={(index) => setMoveNumber(index)}/>
         </div>
         <div className="game-container">
-          <div className="player-two-info player-display-card">
+          <div className={`player-two-info player-display-card ${player2ActiveClass}`}>
               <PlayerCard playerName={currentGame.current?.player2Name ?? "Waiting For Player"}/>
               <Timer timeMs={player2Time} isRunning={player2TimerRunning}/>
           </div>
@@ -146,7 +149,7 @@ export default function Home() {
                        moveNumber={moveNumber}/>
           </div>
            
-          <div className="player-one-info player-display-card">
+          <div className={`player-one-info player-display-card ${player1ActiveClass}`}>
               <PlayerCard playerName={currentGame.current?.player1Name ?? "Waiting For Player"}/>
               <Timer timeMs={player1Time} isRunning={player1TimerRunning} />
           </div>
