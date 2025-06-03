@@ -1,14 +1,24 @@
 ﻿import {
     ActiveGamesMessage,
-    decode, DecodeResult,
-    FromServerMessageType, GameCreatedMessage, GameStatusChangedMessage,
-    InitialStateMessage, NewMoveMessage, PlayerJoinedMessage,
-    TryCreateGameResultMessage, TryJoinGameResult
+    decode,
+    DecodeResult, FailedMoveMessage,
+    FromServerMessageType,
+    GameCreatedMessage,
+    GameStatusChangedMessage,
+    InitialStateMessage,
+    NewMoveMessage,
+    PlayerJoinedMessage,
+    TryCreateGameResultMessage,
+    TryJoinGameResult
 } from "@/WebSocket/Decoding";
 import {
     encodeActiveGamesMessage,
-    encodeCreateGameMessage, encodeDrawRequestMessage, encodeDrawRequestResponse,
-    encodeIdentifyUserMessage, encodeSurrenderMessage, encodeTryJoinGameMessage,
+    encodeCreateGameMessage,
+    encodeDrawRequestMessage,
+    encodeDrawRequestResponse,
+    encodeIdentifyUserMessage,
+    encodeSurrenderMessage,
+    encodeTryJoinGameMessage,
     encodeTryMakeMoveMessage
 } from "@/WebSocket/Encode";
 import WebSocketEvents from "@/WebSocket/WebSocketEvents";
@@ -129,7 +139,10 @@ function ExecuteMessageEmit(resultingMessage : DecodeResult) {
         case FromServerMessageType.TryCreateGameResponse:
             WebSocketEvents.tryCreateGameResultEmitter.emit(resultingMessage as TryCreateGameResultMessage);
             break;
-
+            
+        case FromServerMessageType.FailedMove:
+            WebSocketEvents.failedMoveEvent.emit(resultingMessage as FailedMoveMessage);
+            break;
         default:
             console.error("Unknown message type:", resultingMessage?.type);
     }

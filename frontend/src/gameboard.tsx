@@ -1,6 +1,7 @@
-import { MouseEventHandler, RefObject, useState, useRef, useEffect } from 'react';
-import {ForcedMove, GameInfo} from "@/WebSocket/Decoding";
+import React, { MouseEventHandler, RefObject, useState, useRef, useEffect } from 'react';
+import {FailedMoveMessage, ForcedMove, GameInfo} from "@/WebSocket/Decoding";
 import {CheckersMove} from "@/WebSocket/ByteReader";
+import WebSocketEvents from "@/WebSocket/WebSocketEvents";
 
 enum GameBoardSquare{
     EMPTY = 0,
@@ -23,15 +24,22 @@ export interface GameBoardProps {
     makeMove : (fromIndex : number, toIndex : number) => void;
 }
 
+
+const dragThresholdSquared = 64; // Minimum pixels 8 to drag before considering it a drag action
+
 export default function GameBoard(props: GameBoardProps) {
 
     const forcedMoves = props.currentGame.current?.forcedMoves ?? [];
     const moveHistory = props.currentGame.current?.history ?? [];
     
     const currRenderedMove = useRef<number>(props.moveNumber);
+    const mouseDownPosition = useRef<{ x: number, y: number } | null>(null);
+    const draggingPiece = useRef<{ row: number, col: number } | null>(null);
     
     const [selectedSquare, setSelectedSquare] = useState<{ row: number, col: number } | null>(null);
     const [gameState, setGameState] = useState<number[]>(initialGameState);
+
+    const pieceRefs = useRef<Map<number, React.RefObject<HTMLDivElement | null>>>(new Map());
     
     const TryMakeMove = (row: number, col: number) => {
 
@@ -50,29 +58,148 @@ export default function GameBoard(props: GameBoardProps) {
         setGameState(movedBoard);
     }, [props.moveNumber]);
 
-    const onBoardClick: MouseEventHandler<HTMLDivElement> = (event) => {
+    const onFailedMove = (failedMove : FailedMoveMessage) => {
+        
+        //Rollback to the game state before the failed move. 
+        const refIndex = failedMove.fromXy; 
+        const ref = pieceRefs.current.get(failedMove.fromXy);
+      
+        const col = refIndex % 8;
+        const row = Math.floor(refIndex / 8);
+        
+        if(ref !== undefined && ref.current !== null) {
+            const left = (12.5 * col) + "%";
+            const top = (12.5 * row) + "%";
+            
+            ref.current.style.left = left;
+            ref.current.style.top = top;
+        }
+    }
+    
+    useEffect(() => {
+        WebSocketEvents.failedMoveEvent.subscribe(onFailedMove);
+        
+        return () => {
+            WebSocketEvents.failedMoveEvent.unsubscribe(onFailedMove);
+        }
+    }, []);
+    
+    const onBoardMouseDown: MouseEventHandler<HTMLDivElement> = (event) => {
         const rect = event.currentTarget.getBoundingClientRect();
         const x = event.clientX - rect.left;
         const y = event.clientY - rect.top;
         const col = Math.floor(x / (rect.width / 8));  // Divide by 8 to get 8 columns
         const row = Math.floor(y / (rect.height / 8)); // Divide by 8 to get 8 rows
         
-        const clickedPiece = gameState[row * 8 + col] !== GameBoardSquare.EMPTY;
-        if (selectedSquare === null && clickedPiece) {
-            setSelectedSquare({row, col });
-        } else {
+        const isPlayerPiece = true;
+        if(!isPlayerPiece) { return; }
+        
+        setSelectedSquare({row, col });
+        mouseDownPosition.current = { x: event.clientX, y: event.clientY };
+    }
+    
+    const onBoardMouseUp: MouseEventHandler<HTMLDivElement> = (event) => {
+        
+        mouseDownPosition.current = null;
+     
+
+        const rect = event.currentTarget.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        const col = Math.floor(x / (rect.width / 8));  // Divide by 8 to get 8 columns
+        const row = Math.floor(y / (rect.height / 8)); // Divide by 8 to get 8 rows
+        
+        if(selectedSquare !== null && (selectedSquare.row !== row || selectedSquare.col !== col)) {
             TryMakeMove(row, col);
             setSelectedSquare(null);
+            draggingPiece.current = null;
         }
-    };
+        else if(draggingPiece.current !== null) {
+            //Reset position of the piece if it was not moved.
+            //Might need to put simple valid move check here later? not sure how to "roll back bad moves" without flicker
+            
+            const refPos = draggingPiece.current.row * 8 + draggingPiece.current.col;
+            const ref = pieceRefs.current.get(refPos);
+            
+            if(ref !== undefined && ref.current !== null) {
+                const left = (12.5 * draggingPiece.current.col) + "%";
+                const top = (12.5 * draggingPiece.current.row) + "%";
+                
+                ref.current.style.left = `${left}%`;
+                ref.current.style.top = `${top}px`;
+            }
+        }
+        
+    }
+    
+    const onBoardMouseMove: MouseEventHandler<HTMLDivElement> = (event) => {
+        
+        if(!selectedSquare || mouseDownPosition.current === null) { return; }
+        
+        const rect = event.currentTarget.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        const col = Math.floor(x / (rect.width / 8));  // Divide by 8 to get 8 columns
+        const row = Math.floor(y / (rect.height / 8)); // Divide by 8 to get 8 rows
+        
+        if(draggingPiece.current != null){
+
+            const squareWidth = rect.width / 8;
+            const squareHeight = rect.height / 8;
+            
+            const refPos = draggingPiece.current.row * 8 + draggingPiece.current.col;
+            const ref = pieceRefs.current.get(refPos);
+            
+            if(ref !== undefined && ref.current !== null) {
+                ref.current.style.backgroundColor = "";
+                ref.current.style.border = "";
+                ref.current.style.position = "absolute";
+                ref.current.style.top = y - (squareHeight / 2) + "px";
+                ref.current.style.left = x - (squareWidth / 2) + "px";
+            }
+            
+            return; 
+        }
+        
+        const mouseDownXDelta = Math.abs(mouseDownPosition.current?.x ?? 0 - x);
+        const mouseDownYDelta = Math.abs(mouseDownPosition.current?.y ?? 0 - y);
+
+        const mouseDownXDeltaSquared = mouseDownXDelta ** 2;
+        const mouseDownYDeltaSquared = mouseDownYDelta ** 2;
+        
+        if(mouseDownXDeltaSquared + mouseDownYDeltaSquared < dragThresholdSquared) {
+            return; // Not enough movement to consider it a drag
+        }
+       
+        draggingPiece.current = {row : row, col : col };
+    }
     
     const activeState = props.moveNumber === moveHistory.length-1;
     const squaresToRender = ResolveSquaresToRender(gameState, forcedMoves, activeState, selectedSquare);
     
     let deactivatedClass = activeState ? "" : " deactivated-board";
     return (
-        <div className={`game-board${deactivatedClass}`} onClick={onBoardClick}>
-          {squaresToRender.map((piece) => renderPiece(piece))}
+        <div 
+            className={`game-board${deactivatedClass}`}
+            onMouseDown={onBoardMouseDown} 
+            onMouseMove={onBoardMouseMove}
+            onMouseUp={onBoardMouseUp}>
+            
+          {squaresToRender.map((squareToRender, i) => {
+
+              const left = (12.5 * squareToRender.col) + "%";
+              const top = (12.5 * squareToRender.row) + "%";
+              const key = squareToRender.row + ":" + squareToRender.col;
+              
+              const refPos = squareToRender.row * 8 + squareToRender.col;
+              let ref = pieceRefs.current.get(refPos);
+              if(ref === undefined) {
+                ref = React.createRef<HTMLDivElement>();
+                pieceRefs.current.set(refPos, ref);
+              }
+              
+              return <div ref={ref} key={key} className={squareToRender.classNameExtension} style={{left:left,top:top}}></div>;
+          })}
         </div>
       );
 }
@@ -115,6 +242,15 @@ function ResolveSquaresToRender(gameBoard : number[], forcedMoves : ForcedMove[]
     return squaresList;
 }
 
+function IsPlayerPiece(pos : number, gameBoard : number[], isPlayer1 : boolean) : boolean {
+    if(isPlayer1) {
+        return gameBoard[pos] === GameBoardSquare.PLAYER1PAWN || gameBoard[pos] === GameBoardSquare.PLAYER1KING;
+    }
+    else{
+        return gameBoard[pos] === GameBoardSquare.PLAYER2PAWN || gameBoard[pos] === GameBoardSquare.PLAYER2KING;
+    }
+}
+
 function IsForcedStart(pos : number, forcedMoves : ForcedMove[]) : number  {
     for(let i = 0; i < forcedMoves.length; i++) {
         if(forcedMoves[i].initialPosition === pos) {
@@ -132,15 +268,6 @@ function IsForcedEnd(pos : number, forcedMoves : ForcedMove[]) : number  {
     }
     return -1;
 }
-
-const renderPiece = (gamePiece : SquareToRender) => {
-
-    const left = (12.5 * gamePiece.col) + "%";
-    const top = (12.5 * gamePiece.row) + "%";
-    const key = gamePiece.row + ":" + gamePiece.col;
-    
-    return <div key={key} className={gamePiece.classNameExtension} style={{left:left,top:top}}></div>;
-};
 
 const determineClassNames = (square: GameBoardSquare, forcedSquareIndex : number, isSelectedSquare : boolean) : string => {
     

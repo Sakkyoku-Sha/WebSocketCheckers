@@ -29,7 +29,7 @@ public static class FromClientMessageHandler
     public static void OnTryMakeMoveRequest(UserSession session, TryMakeMoveRequest request)
     {
         if (!session.IsInGame) { return; }
-        _ = LocalGameSpace.TryMakeMove(session.GameId, request.FromXy, request.ToXy, OnSuccessfulMove);
+        _ = LocalGameSpace.TryMakeMove(session.GameId, request.FromXy, request.ToXy, OnSuccessfulMove, OnFailedMove(session, request));
     }
     private static async Task OnSuccessfulMove(GameInfo gameInfo, TimedCheckersMove move)
     {
@@ -46,6 +46,13 @@ public static class FromClientMessageHandler
 
         player1Session.ResetGameId();
         player2Session.ResetGameId();
+    }
+    private static Func<Task> OnFailedMove(UserSession session, TryMakeMoveRequest request)
+    {
+        return async () =>
+        {
+            await WebSocketWriter.WriteFailedMoveAsync(session, request.FromXy, request.ToXy);
+        };
     }
 
     public static void OnTryJoinGameRequest(UserSession session, TryJoinGameRequest request)

@@ -1,5 +1,5 @@
 ﻿import {
-    ActiveGamesMessage, DrawRequestMessage, DrawRequestRejectedMessage,
+    ActiveGamesMessage, DrawRequestMessage, DrawRequestRejectedMessage, FailedMoveMessage,
     GameCreatedMessage, GameStatusChangedMessage,
     InitialStateMessage, NewMoveMessage,
     PlayerJoinedMessage,
@@ -37,6 +37,7 @@ const newMoveEmitter = new EventEmitter<NewMoveMessage>();
 const drawRequestEmitter = new EventEmitter<DrawRequestMessage>();
 const drawRequestRejectedEmitter = new EventEmitter<DrawRequestRejectedMessage>();
 const tryCreateGameResultEmitter = new EventEmitter<TryCreateGameResultMessage>();
+const failedMoveEmitter = new EventEmitter<FailedMoveMessage>();
 
 const WebSocketEvents = {
     initialStateEvent : initialStateEmitter,
@@ -49,6 +50,7 @@ const WebSocketEvents = {
     newMoveEvent : newMoveEmitter,
     drawRequestEvent : drawRequestEmitter,
     drawRequestRejectedEvent : drawRequestRejectedEmitter,
+    failedMoveEvent : failedMoveEmitter,
 } as const;
 
 export default WebSocketEvents;

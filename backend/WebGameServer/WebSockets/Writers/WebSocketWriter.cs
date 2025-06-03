@@ -28,6 +28,7 @@ public enum ToClientMessageType : ushort
     DrawRequest = 9,
     DrawRequestRejected = 10,
     PlayerJoined = 11,
+    FailedMove = 12,
 }
 
 public interface IByteWriter
@@ -160,5 +161,10 @@ public static class WebSocketWriter
         var writer = new DrawRequestRejectedWriter();
         await RentWriteSendAsync(opponentSession, writer);
     }
-}
 
+    public static async Task WriteFailedMoveAsync(UserSession session, byte requestFromXy, byte requestToXy)
+    {
+        var writer = new FailedMoveWriter(requestFromXy, requestToXy);
+        await RentWriteSendAsync(session, writer);
+    }
+}

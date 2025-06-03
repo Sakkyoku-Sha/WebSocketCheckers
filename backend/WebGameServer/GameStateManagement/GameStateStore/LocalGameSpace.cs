@@ -105,7 +105,7 @@ public static class LocalGameSpace
         });
     }
 
-    public static async Task TryMakeMove(uint gameId, byte fromXy, byte toXy, Func<GameInfo, TimedCheckersMove, Task> onSuccessfulMove)
+    public static async Task TryMakeMove(uint gameId, byte fromXy, byte toXy, Func<GameInfo, TimedCheckersMove, Task> onSuccessfulMove, Func<Task> onFail)
     {
         await LockExecuteState(gameId, async (gameInfo) =>
         {
@@ -124,6 +124,10 @@ public static class LocalGameSpace
                 gameInfo.AddHistory(checkersMove);
                 gameInfo.RefreshStatus();
                 await onSuccessfulMove(gameInfo, gameInfo.MoveHistory[gameInfo.MoveHistoryCount-1]);
+            }
+            else
+            {
+                await onFail();
             }
         });
     }

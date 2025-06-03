@@ -22,6 +22,7 @@ export enum FromServerMessageType
     DrawRequest = 9,
     DrawRequestRejected = 10,
     PlayerJoined = 11,
+    FailedMove = 12,
 }
 
 export enum GameStatus
@@ -260,6 +261,8 @@ function decodeInitialServerMessage(byteReader: ByteReader, version: number): De
     }
 }
 
+
+
 export interface TryCreateGameResultMessage extends WebSocketMessage {
     gameId : number
 }
@@ -318,6 +321,21 @@ function decodeDrawRequestRejected(byteReader: ByteReader, version: number): Dra
     };
 }
 
+export interface FailedMoveMessage extends WebSocketMessage {
+    fromXy : number,
+    toXy : number,
+}
+function decodeFailedMoveMessage(byteReader: ByteReader, version: number) : FailedMoveMessage {
+    const fromIndex = byteReader.readUint8();
+    const toIndex = byteReader.readUint8();
+
+    return {
+        type: FromServerMessageType.FailedMove,
+        version: version,
+        fromXy: fromIndex,
+        toXy: toIndex,
+    }
+}
 export function decode(arrayBuffer : ArrayBuffer) : DecodeResult {
     
     const byteReader = new ByteReader(arrayBuffer);
@@ -347,6 +365,8 @@ export function decode(arrayBuffer : ArrayBuffer) : DecodeResult {
             return decodeActiveGamesMessage(byteReader, version);
         case FromServerMessageType.TryCreateGameResponse:    
             return decodeTryCreateGameResult(byteReader, version);
+        case FromServerMessageType.FailedMove:    
+            return decodeFailedMoveMessage(byteReader, version);
             
         default: throw new Error("Unknown type '" + type + "'");   
     }
