@@ -24,9 +24,6 @@ export interface GameBoardProps {
     makeMove : (fromIndex : number, toIndex : number) => void;
 }
 
-
-const dragThresholdSquared = 64; // Minimum pixels 8 to drag before considering it a drag action
-
 export default function GameBoard(props: GameBoardProps) {
 
     const forcedMoves = props.currentGame.current?.forcedMoves ?? [];
@@ -91,8 +88,12 @@ export default function GameBoard(props: GameBoardProps) {
         const col = Math.floor(x / (rect.width / 8));  // Divide by 8 to get 8 columns
         const row = Math.floor(y / (rect.height / 8)); // Divide by 8 to get 8 rows
         
-        const isPlayerPiece = true;
-        if(!isPlayerPiece) { return; }
+        if(selectedSquare !== null && !(selectedSquare.row === row && selectedSquare.col === col)) {
+            TryMakeMove(row, col);
+            setSelectedSquare(null);
+            draggingPiece.current = null;
+            return;
+        }
         
         setSelectedSquare({row, col });
         mouseDownPosition.current = { x: event.clientX, y: event.clientY };
@@ -101,15 +102,14 @@ export default function GameBoard(props: GameBoardProps) {
     const onBoardMouseUp: MouseEventHandler<HTMLDivElement> = (event) => {
         
         mouseDownPosition.current = null;
-     
-
+        
         const rect = event.currentTarget.getBoundingClientRect();
         const x = event.clientX - rect.left;
         const y = event.clientY - rect.top;
         const col = Math.floor(x / (rect.width / 8));  // Divide by 8 to get 8 columns
         const row = Math.floor(y / (rect.height / 8)); // Divide by 8 to get 8 rows
         
-        if(selectedSquare !== null && (selectedSquare.row !== row || selectedSquare.col !== col)) {
+        if(selectedSquare !== null && !(selectedSquare.row === row && selectedSquare.col === col)) {
             TryMakeMove(row, col);
             setSelectedSquare(null);
             draggingPiece.current = null;
@@ -121,15 +121,15 @@ export default function GameBoard(props: GameBoardProps) {
             const refPos = draggingPiece.current.row * 8 + draggingPiece.current.col;
             const ref = pieceRefs.current.get(refPos);
             
-            if(ref !== undefined && ref.current !== null) {
-                const left = (12.5 * draggingPiece.current.col) + "%";
-                const top = (12.5 * draggingPiece.current.row) + "%";
-                
-                ref.current.style.left = `${left}%`;
-                ref.current.style.top = `${top}px`;
+            if(ref?.current) {
+                const left = `${12.5 * col}%`;
+                const top = `${12.5 * row}%`;
+                ref.current!.style.left = left;
+                ref.current!.style.top = top;
             }
         }
-        
+
+        draggingPiece.current = null;
     }
     
     const onBoardMouseMove: MouseEventHandler<HTMLDivElement> = (event) => {
@@ -151,9 +151,6 @@ export default function GameBoard(props: GameBoardProps) {
             const ref = pieceRefs.current.get(refPos);
             
             if(ref !== undefined && ref.current !== null) {
-                ref.current.style.backgroundColor = "";
-                ref.current.style.border = "";
-                ref.current.style.position = "absolute";
                 ref.current.style.top = y - (squareHeight / 2) + "px";
                 ref.current.style.left = x - (squareWidth / 2) + "px";
             }
@@ -161,31 +158,32 @@ export default function GameBoard(props: GameBoardProps) {
             return; 
         }
         
-        const mouseDownXDelta = Math.abs(mouseDownPosition.current?.x ?? 0 - x);
-        const mouseDownYDelta = Math.abs(mouseDownPosition.current?.y ?? 0 - y);
-
-        const mouseDownXDeltaSquared = mouseDownXDelta ** 2;
-        const mouseDownYDeltaSquared = mouseDownYDelta ** 2;
-        
-        if(mouseDownXDeltaSquared + mouseDownYDeltaSquared < dragThresholdSquared) {
-            return; // Not enough movement to consider it a drag
-        }
-       
+        mouseDownPosition.current = { x: event.clientX, y: event.clientY };
         draggingPiece.current = {row : row, col : col };
     }
     
     const activeState = props.moveNumber === moveHistory.length-1;
-    const squaresToRender = ResolveSquaresToRender(gameState, forcedMoves, activeState, selectedSquare);
+    const layersToRender = ResolveSquaresToRender(gameState, forcedMoves, activeState, selectedSquare);
     
     let deactivatedClass = activeState ? "" : " deactivated-board";
+    
     return (
         <div 
             className={`game-board${deactivatedClass}`}
             onMouseDown={onBoardMouseDown} 
             onMouseMove={onBoardMouseMove}
             onMouseUp={onBoardMouseUp}>
+          
+           {layersToRender.highlightedSquares.map((squareToRender, i) => {
+              
+              const left = (12.5 * squareToRender.col) + "%";
+              const top = (12.5 * squareToRender.row) + "%";
+              const key = squareToRender.row + ":" + squareToRender.col;
+
+              return <div key={key} className={squareToRender.classNameExtension} style={{left:left,top:top}}></div>;
+          })}
             
-          {squaresToRender.map((squareToRender, i) => {
+          {layersToRender.pieces.map((squareToRender, i) => {
 
               const left = (12.5 * squareToRender.col) + "%";
               const top = (12.5 * squareToRender.row) + "%";
@@ -194,19 +192,24 @@ export default function GameBoard(props: GameBoardProps) {
               const refPos = squareToRender.row * 8 + squareToRender.col;
               let ref = pieceRefs.current.get(refPos);
               if(ref === undefined) {
-                ref = React.createRef<HTMLDivElement>();
-                pieceRefs.current.set(refPos, ref);
+                  ref = React.createRef<HTMLDivElement>();
+                  pieceRefs.current.set(refPos, ref);
               }
-              
+
               return <div ref={ref} key={key} className={squareToRender.classNameExtension} style={{left:left,top:top}}></div>;
           })}
         </div>
       );
 }
+interface ResolvedLayers{
+    highlightedSquares : SquareToRender[],
+    pieces : SquareToRender[],
+}
 
-function ResolveSquaresToRender(gameBoard : number[], forcedMoves : ForcedMove[], activeState : boolean, selectedSquare : { row: number, col: number } | null) : SquareToRender[] {
+function ResolveSquaresToRender(gameBoard : number[], forcedMoves : ForcedMove[], activeState : boolean, selectedSquare : { row: number, col: number } | null) : ResolvedLayers {
     
-    const squaresList = [] as SquareToRender[];
+    const pieces = [] as SquareToRender[];
+    const highlightedSquares = [] as SquareToRender[];
     
     for(let pos = 0; pos < gameBoard.length; pos++) {
         
@@ -218,18 +221,63 @@ function ResolveSquaresToRender(gameBoard : number[], forcedMoves : ForcedMove[]
             
             const forcedStart = activeState ? IsForcedStart(pos, forcedMoves) : -1;
             const isSelected = selectedSquare?.row === currRow && selectedSquare?.col === currCol;
-            
-            squaresList.push({
+
+            pieces.push({
                 row : currRow,
                 col : currCol,
                 value : pieceValue,
-                classNameExtension : determineClassNames(pieceValue, forcedStart, isSelected),
+                classNameExtension : determinePieceClassName(pieceValue),
             })
+            
+            if(forcedStart >= 0) {
+                highlightedSquares.push({
+                    row : currRow, 
+                    col : currCol, 
+                    value : GameBoardSquare.EMPTY,
+                    classNameExtension : " forced-jump forced-jump-" + forcedStart
+                });
+            }
+            if(isSelected) {
+                highlightedSquares.push({
+                    row : currRow, 
+                    col : currCol, 
+                    value : GameBoardSquare.EMPTY, 
+                    classNameExtension : " selected-square"
+                })
+            }
+            if(isSelected && forcedStart === -1){
+                
+                //Add potential jump squares as white dots.
+                let moveOffsets : number[] = [];
+                if(pieceValue === GameBoardSquare.PLAYER1KING || pieceValue === GameBoardSquare.PLAYER2KING){
+                    moveOffsets = [-9, -7, 7, 9]; // Offsets for jumps in all directions
+                }
+                else if(pieceValue === GameBoardSquare.PLAYER1PAWN) {
+                    moveOffsets = [-9, -7]; // Player 1 can only jump diagonally forward
+                }
+                else if(pieceValue === GameBoardSquare.PLAYER2PAWN) {
+                    moveOffsets = [7, 9]; // Player 2 can only jump diagonally forward
+                }
+
+                for (const offset of moveOffsets) {
+                    const movePos = pos + offset;
+                    if (movePos >= 0 && movePos < gameBoard.length && gameBoard[movePos] === GameBoardSquare.EMPTY) {
+                        const moveRow = Math.floor(movePos / 8);
+                        const moveColCol = movePos % 8;
+                        highlightedSquares.push({
+                            row: moveRow,
+                            col: moveColCol,
+                            value: GameBoardSquare.EMPTY,
+                            classNameExtension: " potential-move"
+                        });
+                    }
+                }
+            }
         }
         else{
             const forcedEnd = activeState ? IsForcedEnd(pos, forcedMoves) : -1;
             if(forcedEnd >= 0) {
-                squaresList.push({
+                highlightedSquares.push({
                     row : currRow,
                     col : currCol,
                     value : GameBoardSquare.EMPTY,
@@ -239,16 +287,10 @@ function ResolveSquaresToRender(gameBoard : number[], forcedMoves : ForcedMove[]
         }
     }
     
-    return squaresList;
-}
-
-function IsPlayerPiece(pos : number, gameBoard : number[], isPlayer1 : boolean) : boolean {
-    if(isPlayer1) {
-        return gameBoard[pos] === GameBoardSquare.PLAYER1PAWN || gameBoard[pos] === GameBoardSquare.PLAYER1KING;
-    }
-    else{
-        return gameBoard[pos] === GameBoardSquare.PLAYER2PAWN || gameBoard[pos] === GameBoardSquare.PLAYER2KING;
-    }
+    return {
+        pieces: pieces,
+        highlightedSquares: highlightedSquares,
+    };
 }
 
 function IsForcedStart(pos : number, forcedMoves : ForcedMove[]) : number  {
@@ -269,15 +311,10 @@ function IsForcedEnd(pos : number, forcedMoves : ForcedMove[]) : number  {
     return -1;
 }
 
-const determineClassNames = (square: GameBoardSquare, forcedSquareIndex : number, isSelectedSquare : boolean) : string => {
+const determinePieceClassName = (square: GameBoardSquare) : string => {
     
     let classNameExtension = "";
-    if(isSelectedSquare) {
-        classNameExtension += " selected";
-    }
-    if(forcedSquareIndex >= 0) {
-        classNameExtension += " forced-jump-" + forcedSquareIndex;
-    }
+   
     switch (square) {
         case GameBoardSquare.PLAYER1PAWN: 
             classNameExtension +=  " player1-pawn"; 

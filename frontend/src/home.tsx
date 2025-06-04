@@ -18,6 +18,7 @@ import WebSocketEvents from "@/WebSocket/WebSocketEvents";
 import {WebSocketSend} from "@/WebSocket/WebSocketConnect";
 import {Timer} from "@/Timer";
 
+const moveAudio = new Audio("/move.mp3");
 
 export default function Home() {
     
@@ -50,6 +51,16 @@ export default function Home() {
       currentGame.current.forcedMoves = newMoveMessage.forcedMovesInPosition;
       currentGame.current.history.push(newMoveMessage.move);
       setMoveNumber(currentGame.current.history.length - 1);
+
+      try {
+          // Reset audio if it's already playing
+          if (!moveAudio.paused) {
+              moveAudio.currentTime = 0;
+          }
+          moveAudio.play().catch(e => console.warn(e));
+      } catch (e) {
+          console.warn("Failed to play move sound:", e);
+      }
   }
   
   const onGameStatusChanged = (gameStatusMessage : GameStatusChangedMessage) => {
